@@ -27,24 +27,25 @@ function strip (str) {
 
 // ## resolveMedia
 // Resolves media queries
-
 function resolveMedia (node, properties) {
-  node.$media.forEach(function (media) {
-    if (media.query(properties)) apply(node.$styles, media.styles);
-  });
+  if (node.$media) node.$media.forEach(function (media) {
+      if (media.query(properties)) apply(node.$styles, media.styles);
+    });
 }
 
 // ## resolveSubtree
 // Recursively resolves styles while walking down a tree of styles
-function resolveSubtree (subtree, out, selectors) {
+function resolveSubtree (subtree, properties, out, selectors) {
   var selector = selectors.shift();
 
   (Array.isArray(selector)? selector : [selector]).forEach(function (iter) {
     var newSubtree = subtree[iter];
-    resolveMedia(newSubtree);
-    defaultApply(out, newSubtree.$styles);
+    if (newSubtree) {
+      resolveMedia(newSubtree, properties);
+      defaultApply(out, newSubtree.$styles);
 
-    resolveSubtree(newSubtree, out, selectors);
+      resolveSubtree(newSubtree, properties, out, selectors);
+    }
   });
 }
 
@@ -88,12 +89,12 @@ function buildSelectorList (type, attributes) {
   return ret;
 }
 
-function resolve (stylesheets, type, attributes) {
+function resolve (stylesheets, properties, type, attributes) {
   var selectorList = buildSelectorList(type, attributes);
   var out = {};
 
   selectorList.forEach(function (iter) {
-    resolveSubtree(stylesheets, out, iter.concat());
+    resolveSubtree(stylesheets, properties, out, iter.concat());
   });
 
   return out;
@@ -102,6 +103,7 @@ function resolve (stylesheets, type, attributes) {
 exports.resolve = resolve;
 exports.buildSelectorList = buildSelectorList;
 exports.defaultApply = defaultApply;
+exports.apply = apply;
 exports.strip = strip;
 exports.resolveMedia = resolveMedia;
 

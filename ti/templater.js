@@ -2,6 +2,7 @@
 
 var styler = require('timplate/styler');
 var maps = require('timplate/maps');
+var props = require('timplate/props');
 
 function make (type, args) {
   if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
@@ -75,8 +76,8 @@ function create (stylesheets, node, emitter, handler, parentType) {
     }
   }
 
-  var styles = styler.resolve(stylesheets, type, attributes);
-  styler.apply(attributes, styles);
+  var styles = styler.resolve(stylesheets, props, type, attributes);
+  styler.defaultApply(attributes, styles);
 
   var item;
   if (parentType == "Template") {
