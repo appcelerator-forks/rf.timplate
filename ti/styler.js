@@ -42,7 +42,7 @@ function resolveSubtree (subtree, properties, out, selectors) {
     var newSubtree = subtree[iter];
     if (newSubtree) {
       resolveMedia(newSubtree, properties);
-      defaultApply(out, newSubtree.$styles);
+      apply(out, newSubtree.$styles);
 
       resolveSubtree(newSubtree, properties, out, selectors);
     }
@@ -63,7 +63,7 @@ function buildSelectorList (type, attributes) {
   // Full is the 'full selector', containing type, id, and classes
   var full = [type];
   var classes;
-  var ret = [full];
+  var ret = [];
 
   // Add the id to the full selector
   if (attributes.id) full.push('#' + attributes.id);
@@ -86,6 +86,11 @@ function buildSelectorList (type, attributes) {
   if (attributes.id && attributes['class'])
     ret.push(['#' + attributes.id, classes]);
 
+  ret.push(full);
+
+  // lone id selector should take highest priority
+  if (attributes.id) ret.push(['#' + attributes.id]);
+
   return ret;
 }
 
@@ -97,6 +102,7 @@ function resolve (stylesheets, properties, type, attributes) {
     resolveSubtree(stylesheets, properties, out, iter.concat());
   });
 
+  apply(out, attributes);
   return out;
 }
 
