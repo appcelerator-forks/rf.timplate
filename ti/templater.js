@@ -80,9 +80,6 @@ function create (stylesheets, node, emitter, handler, parentType) {
   var styles = styler.resolve(stylesheets, props, type, attributes);
   styler.defaultApply(attributes, styles);
 
-  if (type == "View" || type == "Label")
-  console.log(type, "styles:", styles);
-
   var item;
   if (parentType == "Template") {
     // In template mode we need to output a template fragment instead of an
