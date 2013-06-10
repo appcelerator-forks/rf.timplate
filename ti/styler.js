@@ -116,19 +116,44 @@ function buildSelectorList (type, attributes) {
   return ret;
 }
 
+var resolveMemo = {};
+
+// ## resolve
+// Resolve styles
+//  * `stylesheets`: output of the stylesheet compiler
+//  * `properties`: props used for media queries
+//  * `type`: type of the object we're resolving styles for
+//  * `attributes`: attributes of the object. these override all styles we
+//    compute. also this is where we get id and class from
+//  Don't worry its memoized   :  ]
+
 function resolve (stylesheets, properties, type, attributes) {
-  var selectorList = buildSelectorList(type, attributes);
-  var out = [];
+  var memoKey = type + "#" + attributes.id + "." + attributes['class'];
 
-  selectorList.forEach(function (iter) {
-    resolveSubtree(stylesheets, properties, out, iter.concat(), 0);
-  });
+  var collapsed;
 
-  // Collapse the styles according to specificty
-  var collapsed = collapse(out);
+  if (resolveMemo[memoKey]) {
+    collapsed = resolveMemo[memoKey];
+  } 
+  
+  else {
+    var selectorList = buildSelectorList(type, attributes);
+    var out = [];
 
-  apply(collapsed, attributes);
-  return collapsed;
+    selectorList.forEach(function (iter) {
+      resolveSubtree(stylesheets, properties, out, iter.concat(), 0);
+    });
+
+    // Collapse the styles according to specificty
+    collapsed = collapse(out);
+
+    resolveMemo[memoKey] = collapsed;
+  }
+
+  var styles = {};
+  apply(styles, collapsed);
+  apply(styles, attributes);
+  return styles;
 }
 
 exports.resolve = resolve;
