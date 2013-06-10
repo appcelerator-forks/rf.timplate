@@ -33,18 +33,42 @@ function resolveMedia (node, properties) {
     });
 }
 
+// ## howSpecific
+// Returns a number corresponding to how specific the selector is
+function howSpecific (selector) {
+  if (selector[0] == ".") return 10;
+  if (selector[0] == "#") return 100;
+  return 1;
+}
+
+// ## collapse
+// Collapses an array of styles according to their specificity
+function collapse (styles) {
+  styles.sort(function (a, b) { return a.specificity - b.specificity; });
+
+  return styles.reduce(function (memo, item) {
+    apply(memo, item.styles);
+    return memo;
+  }, {});
+}
+
 // ## resolveSubtree
 // Recursively resolves styles while walking down a tree of styles
-function resolveSubtree (subtree, properties, out, selectors) {
+function resolveSubtree (subtree, properties, out, selectors, specificity) {
   var selector = selectors.shift();
+  if (!selector) return;
 
   (Array.isArray(selector)? selector : [selector]).forEach(function (iter) {
     var newSubtree = subtree[iter];
+
+    // update specificity
+    specificity += howSpecific(iter);
+
     if (newSubtree) {
       resolveMedia(newSubtree, properties);
-      apply(out, newSubtree.$styles);
+      out.push({specificity: specificity, styles: newSubtree.$styles});
 
-      resolveSubtree(newSubtree, properties, out, selectors);
+      resolveSubtree(newSubtree, properties, out, selectors, specificity);
     }
   });
 }
@@ -63,10 +87,13 @@ function buildSelectorList (type, attributes) {
   // Full is the 'full selector', containing type, id, and classes
   var full = [type];
   var classes;
-  var ret = [];
+  var ret = [full];
 
   // Add the id to the full selector
-  if (attributes.id) full.push('#' + attributes.id);
+  if (attributes.id) {
+    full.push('#' + attributes.id);
+    ret.push(['#' + attributes.id]);
+  }
 
   if (attributes['class']) {
     classes = attributes['class'].split(' ').map(function (iter) {
@@ -86,24 +113,22 @@ function buildSelectorList (type, attributes) {
   if (attributes.id && attributes['class'])
     ret.push(['#' + attributes.id, classes]);
 
-  ret.push(full);
-
-  // lone id selector should take highest priority
-  if (attributes.id) ret.push(['#' + attributes.id]);
-
   return ret;
 }
 
 function resolve (stylesheets, properties, type, attributes) {
   var selectorList = buildSelectorList(type, attributes);
-  var out = {};
+  var out = [];
 
   selectorList.forEach(function (iter) {
-    resolveSubtree(stylesheets, properties, out, iter.concat());
+    resolveSubtree(stylesheets, properties, out, iter.concat(), 0);
   });
 
-  apply(out, attributes);
-  return out;
+  // Collapse the styles according to specificty
+  var collapsed = collapse(out);
+
+  apply(collapsed, attributes);
+  return collapsed;
 }
 
 exports.resolve = resolve;
