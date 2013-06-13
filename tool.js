@@ -159,7 +159,7 @@ if (program.watch) {
       var out = path.join(program.output, "styles.js");
       fs.writeFile(out, data);
 
-      console.log("Updating styles");
+      //console.log("Updating styles");
       io.sockets.emit('styles', rawSrc);
     });
   });

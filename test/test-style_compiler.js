@@ -1,8 +1,12 @@
 var compiler;
-if (process.env.TIMPLATE_COV)
+var tokenizer;
+if (process.env.TIMPLATE_COV) {
   compiler = require('../lib-cov/css');
-else
+  tokenizer = require('../lib-cov/tokenizer');
+} else {
   compiler = require('../lib/css');
+  tokenizer = require('../lib/tokenizer');
+}
 
 var YAML = require('libyaml');
 var assert = require('assert');
@@ -112,8 +116,6 @@ describe('compiler', function () {
 
 describe('tokenizer', function () {
   it('works', function () {
-    var tokenizer = require('../tokenizer');
-
     var terminals = {
       ident: "^([a-zA-Z/g-]+)",
       id: "^/g#",

@@ -48,7 +48,10 @@ function updateStyles (stylesheets, root) {
   var styles = 
     styler.resolve(stylesheets, props, root.attributes.type, root.attributes);
 
-  for (var ii in styles) root.view[ii] = styles[ii];
+  if (root.view.applyProperties)
+    root.view.applyProperties(styles);
+  else
+    for (var ii in styles) root.view[ii] = styles[ii];
 
   for (var i = 0; i < root.children.length; i++) {
     updateStyles(stylesheets, root.children[i]);
