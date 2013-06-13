@@ -152,10 +152,15 @@ function resolve (stylesheets, properties, type, attributes) {
 
   var styles = {};
   apply(styles, collapsed);
-  apply(styles, attributes);
+  //apply(styles, attributes);
   return styles;
 }
 
+function clearResolveMemo () {
+  resolveMemo = {};
+}
+
+exports.clearResolveMemo = clearResolveMemo;
 exports.resolve = resolve;
 exports.buildSelectorList = buildSelectorList;
 exports.defaultApply = defaultApply;

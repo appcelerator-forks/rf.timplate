@@ -22,6 +22,7 @@ program
   .option('-o, --output <dir>', 'Specify output directory, defaults to Resources')
   .option('-t, --templates <dir>', 'Specify templates directory, defaults to templates')
   .option('-s, --stylesheets <dir>', 'Specify stylesheets directory, defaults to stylesheets')
+  .option('-w, --watch', 'watch for changes and run a socket.io server to pipe changes to client')
   .parse(process.argv);
 
 program.output = program.output || "./Resources/timplate/";
@@ -96,7 +97,7 @@ function parseTemplates(templatesDir, outputDir, done) {
   });
 }
 
-function parseStylesheets(stylesheetsDir, outputDir, done) {
+function parseStylesheets(stylesheetsDir, done) {
   // ids, classes and types are trees. We 'walk' selectors down the trees to
   // resolve them. We don't support descendent selectors or inheritance.
 
@@ -112,11 +113,52 @@ function parseStylesheets(stylesheetsDir, outputDir, done) {
       processCSS(data, filename, ext, styleData, next);
     });
   }).on("end", function () {
-    var out = path.join(outputDir, "styles.js");
     var src = "module.exports = " + tosource(styleData) + ";";
-    fs.writeFile(out, src, done);
+    done(null, src, tosource(styleData), _.size(styleData));
   });
 }
 
 parseTemplates(program.templates, program.output);
-parseStylesheets(program.stylesheets, program.output);
+
+parseStylesheets(program.stylesheets, function (err, data) {
+  if (err) return console.log(err);
+
+  var out = path.join(program.output, "styles.js");
+  fs.writeFile(out, data);
+});
+
+module.exports.parseStylesheets = parseStylesheets;
+
+if (program.watch) {
+  var io = require('socket.io').listen(3456, {log: false});
+  var clients = {};
+
+  io.sockets.on('connection', function (socket) {
+    var id = data.id;
+
+    socket.on('register', function (data) {
+      clients[data.id] = data;
+      console.log("Got connection from " + data.model + ", id:" + data.id);
+    });
+
+    socket.on('disconnect', function (data) {
+      console.log("Disconnect: " + data.model + ", id:" + data.id);
+      delete clients[id];
+    });
+  });
+
+  fs.watch(program.stylesheets, function (event) {
+    parseStylesheets(program.stylesheets, function (err, data, rawSrc, size) {
+      if (err) return console.log(err);
+
+      if (size === 0) return;
+
+      var out = path.join(program.output, "styles.js");
+      fs.writeFile(out, data);
+
+      console.log("Updating styles");
+      io.sockets.emit('styles', rawSrc);
+    });
+  });
+}
+

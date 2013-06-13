@@ -147,7 +147,6 @@ function processSelector (selector) {
       break;
 
       case "or":
-        console.log('hi');
         currOutput = {};
         output.push(currOutput);
       break;

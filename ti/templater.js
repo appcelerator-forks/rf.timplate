@@ -5,6 +5,7 @@ var maps = require('timplate/maps');
 var props = require('timplate/props');
 
 function make (type, args) {
+  console.log(type);
   if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
   else return new maps.constructors[type](args);
 }
@@ -44,22 +45,41 @@ function handleAttributes (xmlAttributes, /*out*/ attributes, /*out*/ events) {
   }
 }
 
+function updateStyles (stylesheets, root) {
+  var styles = 
+    styler.resolve(stylesheets, props, root.attributes.type, root.attributes);
+
+  for (var ii in styles) root.view[ii] = styles[ii];
+
+  for (var i = 0; i < root.children.length; i++) {
+    updateStyles(stylesheets, root.children[i]);
+  }
+}
+
 // ## create
 // Recursively creates elements based on the XML tree.  Returns top level view.
 // Events are handled in 2 ways - we fire an event on `emitter` and we check
 // to see if there is a function to be called on `handler`.
 //
+//  * `stylesheets` stylesheets from the compiler
 //  * `node` the current node we're at in the tree
 //  * `emitter` the emitter we're firing events on
 //  * `handler` the object with methods that will handle events
 //  * `parentType` type of the parent of the current node
+//  * `newTreeNode` current node in the new view tree that we're building
 
-function create (stylesheets, node, emitter, handler, parentType) {
+function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
   var iter;
   var type = node.nodeName;
   var nodeType = node.nodeType;
   var attributes = {};
   var events = {};
+
+  // we're building a new view tree of our own thats just js objects
+  if (!newTreeNode) {
+    newTreeNode = {children: [], type: type};
+    emitter.tree = newTreeNode;
+  }
 
   if (goodNodeType(node) == "string") return node.nodeValue;
   handleAttributes(node.attributes, attributes, events);
@@ -76,6 +96,11 @@ function create (stylesheets, node, emitter, handler, parentType) {
     }
   }
 
+  // Copy the base attributes into the tree node. We do this so we can apply
+  // styling changes to the base attributes.
+  newTreeNode.attributes = {};
+  styler.defaultApply(newTreeNode.attributes, attributes);
+  newTreeNode.attributes.type = type;
 
   var styles = styler.resolve(stylesheets, props, type, attributes);
   styler.defaultApply(attributes, styles);
@@ -106,6 +131,8 @@ function create (stylesheets, node, emitter, handler, parentType) {
   var len = children.length;
 
   for (iter = 0; iter < len; iter++) {
+    var newTreeChildNode = {children: []};
+
     // We pass our type to the next call down since if we're a Template, the
     // child has to do weird edge case stuff. Also, if our parent was a 
     // Template, we need to continue doing weird edge case stuff, so we pass
@@ -115,10 +142,13 @@ function create (stylesheets, node, emitter, handler, parentType) {
       children.item(iter), 
       emitter, 
       handler, 
-      parentType == "Template"? "Template" : type
+      parentType == "Template"? "Template" : type,
+      newTreeChildNode
     );
 
     if (typeof newChild == "string") continue; // ignore text / cdata nodes
+
+    newTreeNode.children.push(newTreeChildNode);
 
     if (type == "Template" || parentType == "Template") {
       // current type is template, so the new child is a view to be added
@@ -141,7 +171,6 @@ function create (stylesheets, node, emitter, handler, parentType) {
   }
 
   if (type == "Template") {
-    // Edge case of template event handlers
     Object.keys(events).forEach(function (iter) {
       var name = events[iter];
       events[iter] = function (event) {
@@ -194,10 +223,14 @@ function create (stylesheets, node, emitter, handler, parentType) {
     });
   }
 
+  // add a reference to the newly created view on the new tree node
+  newTreeNode.view = item;
+
   return item;
 }
 
 exports.goodNodeType = goodNodeType;
 exports.create = create;
+exports.updateStyles = updateStyles;
 
 }());

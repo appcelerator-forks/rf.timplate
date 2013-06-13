@@ -71,6 +71,7 @@ else if (info.diag > 2.5) props.formfactor = 'phone';
 else props.formfactor = 'tinyphone';
 
 if (props.formfactor == 'tablet') props.tablet = true;
+else props.tablet = false;
 
 module.exports = props;
 

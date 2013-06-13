@@ -1,5 +1,6 @@
 module.exports = (function() {
   var templater = require('timplate/templater');
+  var styler = require('timplate/styler');
 
   var templates;
   try {
@@ -19,6 +20,43 @@ module.exports = (function() {
 
   var EventEmitter = require('timplate/eventemitter2').EventEmitter2;
 
+  // Connect for live reload
+  function connect (host) {
+    var io = require('timplate/socket.io');
+    var socket = io.connect(host || "localhost:3456");
+
+    socket.emit('register', {
+      id: Ti.Platform.id,
+      model: Ti.Platform.model
+    });
+
+    timplate.updates = new EventEmitter();
+
+    socket.on('styles', function (styles) {
+      console.log("stuff");
+      try {
+        stylesheets = eval('(' + styles + ')');
+        styler.clearResolveMemo();
+        timplate.updates.emit('styles');
+      } catch (e) {
+        console.log('Error receiving styles');
+        console.log(e);
+      }
+    });
+
+    socket.on('connected', function () {
+      console.log("connected");
+    });
+
+    socket.on('connect_failed', function (event) {
+      console.log("connected failed");
+    });
+
+    socket.on('error', function (event) {
+      console.log("error");
+    });
+  }
+
   function timplate (name) {
     if (typeof templates.fns[name] == 'undefined') {
       throw new Error("template " + name + " not found");
@@ -37,12 +75,20 @@ module.exports = (function() {
       }
 
       var doc = Ti.XML.parseString(xml);
+      if (Ti.Platform.osname == "android") doc = doc.firstChild;
+
       var ret = new EventEmitter();
       ret.view = templater.create(stylesheets, doc.firstChild, ret, handler);
+
+      if (timplate.updates) timplate.updates.on('styles', function () {
+        templater.updateStyles(stylesheets, ret.tree);
+      });
 
       return ret;
     };
   }
+
+  timplate.connect = connect;
 
   return timplate;
 }());
