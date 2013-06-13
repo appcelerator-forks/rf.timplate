@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>ti/templater.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">57.61</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">235</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">59.71</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">2.00</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">(function () {
+
+var styler = require('timplate/styler');
+var maps = require('timplate/maps');
+var props = require('timplate/props');
+
+function make (type, args) {
+  if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
+  else return new maps.constructors[type](args);
+}
+
+// ## goodNodeType
+// Returns node type in an easier to use way
+
+function goodNodeType (node) {
+  var n = node.nodeType;
+  if (n == node.TEXT_NODE) return "string";
+  if (n == node.ENTITY_NODE) return "entity";
+  if (n == node.CDATA_SECTION_NODE) return "string";
+  if (n == node.ATTRIBUTE_NODE) return "attribute";
+  if (n == node.ELEMENT_NODE) return "element";
+}
+
+// ## handleAttributes
+// Converts attributes on an xml node into an object of attributes and
+// events
+
+function handleAttributes (xmlAttributes, /*out*/ attributes, /*out*/ events) {
+  // Put attributes into an obj
+  if (xmlAttributes) {
+    var numAttrs = xmlAttributes.length;
+    for (var iter = 0; iter < numAttrs; iter++) {
+      var attr = xmlAttributes.item(iter);
+      attributes[attr.nodeName] = attr.nodeValue;
+
+      // assume it's an event. If it's not we'll just end up adding a
+      // listener for an event that doesn't exist, little penalty there.
+      if (attr.nodeName.indexOf("on") === 0) {
+        var correctedName = attr.nodeName.slice(2, 3).toLowerCase() +
+          attr.nodeName.slice(3);
+        events[correctedName] = attr.nodeValue;
+      }
+    }
+  }
+}
+
+function updateStyles (stylesheets, root) {
+  var styles = 
+    styler.resolve(stylesheets, props, root.attributes.type, root.attributes);
+
+  for (var ii in styles) root.view[ii] = styles[ii];
+
+  for (var i = 0; i < root.children.length; i++) {
+    updateStyles(stylesheets, root.children[i]);
+  }
+}
+
+// ## create
+// Recursively creates elements based on the XML tree.  Returns top level view.
+// Events are handled in 2 ways - we fire an event on `emitter` and we check
+// to see if there is a function to be called on `handler`.
+//
+//  * `stylesheets` stylesheets from the compiler
+//  * `node` the current node we're at in the tree
+//  * `emitter` the emitter we're firing events on
+//  * `handler` the object with methods that will handle events
+//  * `parentType` type of the parent of the current node
+//  * `newTreeNode` current node in the new view tree that we're building
+
+function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
+  var iter;
+  var type = node.nodeName;
+  var nodeType = node.nodeType;
+  var attributes = {};
+  var events = {};
+
+  // we're building a new view tree of our own thats just js objects
+  if (!newTreeNode) {
+    newTreeNode = {children: [], type: type};
+    emitter.tree = newTreeNode;
+  }
+
+  if (goodNodeType(node) == "string") return node.nodeValue;
+  handleAttributes(node.attributes, attributes, events);
+
+  // If the child is a text node, use it as the text or title property of the
+  // new element. Edge case. We do this here instead of in the lower child
+  // processing loop because this way we set the attribute before creating
+  // the element.
+  if (node.firstChild) {
+    var child = node.firstChild, val = child.nodeValue;
+    if (goodNodeType(child) == "string") {
+      if (type == "Label") attributes.text = val;
+      else attributes.title = val;
+    }
+  }
+
+  // Copy the base attributes into the tree node. We do this so we can apply
+  // styling changes to the base attributes.
+  newTreeNode.attributes = {};
+  styler.defaultApply(newTreeNode.attributes, attributes);
+  newTreeNode.attributes.type = type;
+
+  var styles = styler.resolve(stylesheets, props, type, attributes);
+  styler.defaultApply(attributes, styles);
+
+  var item;
+  if (parentType == "Template") {
+    // In template mode we need to output a template fragment instead of an
+    // actual view.
+    item = {
+      properties: attributes,
+      template: attributes.template,
+      bindId: attributes.bindId,
+      type: 'Ti.UI.' + maps.types[type]
+    };
+  } else if (parentType == "Item") {
+    // If the parent is an item, this needs to just be an object
+    item = attributes;
+    item.name = type;
+  } else if (type != "List") {
+    // We have to defer list creation to when we've collected all templates
+    item = make(type, attributes);
+  }
+
+  // For storing section items or list items when iterating over children
+  var listItems = [];
+
+  var children = node.childNodes;
+  var len = children.length;
+
+  for (iter = 0; iter < len; iter++) {
+    var newTreeChildNode = {children: []};
+
+    // We pass our type to the next call down since if we're a Template, the
+    // child has to do weird edge case stuff. Also, if our parent was a 
+    // Template, we need to continue doing weird edge case stuff, so we pass
+    // "Template" as the parentType again.
+    var newChild = create(
+      stylesheets,
+      children.item(iter), 
+      emitter, 
+      handler, 
+      parentType == "Template"? "Template" : type,
+      newTreeChildNode
+    );
+
+    if (typeof newChild == "string") continue; // ignore text / cdata nodes
+
+    newTreeNode.children.push(newTreeChildNode);
+
+    if (type == "Template" || parentType == "Template") {
+      // current type is template, so the new child is a view to be added
+      // to the array. Or its a child of a child of a template, so we have
+      // nested templates
+      item.childTemplates = item.childTemplates || [];
+      item.childTemplates.push(newChild);
+    } else if (type == "List") {
+      if (newChild.childTemplates) {
+        attributes.templates = attributes.templates || {};
+        attributes.templates[newChild.name] = newChild;
+      } else listItems.push(newChild);
+    } else if (type == "Section") {
+      listItems.push(newChild);
+    } else if (type == "Item") {
+      item[newChild.name] = newChild;
+    } else {
+      item.add(newChild);
+    }
+  }
+
+  if (type == "Template") {
+    Object.keys(events).forEach(function (iter) {
+      var name = events[iter];
+      events[iter] = function (event) {
+        emitter.emit(name, event);
+        var correctedName = 'on' + name.slice(0, 1).toUpperCase() + name.slice(1);
+
+        if (typeof handler[correctedName] == "function")
+          handler[correctedName].call(handler, event);
+        if (typeof handler[name] == "function")
+          handler[name].call(handler, event);
+      };
+    });
+    attributes.events = events;
+  }
+
+  if (type == "List") {
+    // List creation is deferred until this point so we can construct w/
+    // the sections
+    attributes.sections = listItems;
+    item = make(type, attributes);
+  } else if (type == "Section") {
+    item.setItems(listItems);
+  }
+
+  // Handle events
+  if (attributes.id && !emitter.hasOwnProperty(attributes.id))
+    emitter[attributes.id] = item;
+
+  if (type != "Template") {
+    Object.keys(events).forEach(function (eventName) {
+      item.addEventListener(eventName, function (event) {
+        emitter.emit(events[eventName], event);
+      });
+
+      if (handler) {
+        // Check if the handler obj has onHandlerName
+        var name = events[eventName];
+        var correctedName = 'on' + name.slice(0, 1).toUpperCase() + name.slice(1);
+        if (typeof handler[correctedName] == "function")
+          item.addEventListener(eventName, function (event) {
+            handler[correctedName].call(handler, event);
+          });
+
+        // Check if handler obj has handlerName
+        if (typeof handler[name] == "function")
+          item.addEventListener(eventName, function (event) {
+            handler[name].call(handler, event);
+          });
+      }
+    });
+  }
+
+  // add a reference to the newly created view on the new tree node
+  newTreeNode.view = item;
+
+  return item;
+}
+
+exports.goodNodeType = goodNodeType;
+exports.create = create;
+exports.updateStyles = updateStyles;
+
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>ti/styler.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">70.06</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">181</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">43.20</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.11</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">(function () {
+
+// ## defaultApply
+// Does a default-apply into dest from src
+function defaultApply (dest, src) {
+  for (var iter in src)
+    if (src.hasOwnProperty(iter) && !dest.hasOwnProperty(iter))
+      dest[iter] = src[iter];
+}
+
+// ## apply
+// applies into dest from src
+function apply (dest, src) {
+  if (!dest) {
+    console.log("Apply called with falsy dest");
+    console.log(arguments);
+    console.log(new Error().stack);
+    return;
+  }
+
+  for (var iter in src)
+    if (src.hasOwnProperty(iter))
+      dest[iter] = src[iter];
+}
+
+// ## strip
+// strips whitespace from string
+function strip (str) {
+  return str.split(' ').reduce(function (memo, item) {
+    if (item) memo += item;
+    return memo;
+  }, "");
+}
+
+// ## resolveMedia
+// Resolves media queries
+function resolveMedia (node, properties) {
+  if (node.$media) {
+    node.$styles = node.$styles || {};
+    node.$media.forEach(function (media) {
+      if (media.query(properties)) apply(node.$styles, media.styles);
+    });
+  }
+}
+
+// ## howSpecific
+// Returns a number corresponding to how specific the selector is
+function howSpecific (selector) {
+  if (selector[0] == ".") return 10;
+  if (selector[0] == "#") return 100;
+  return 1;
+}
+
+// ## collapse
+// Collapses an array of styles according to their specificity
+function collapse (styles) {
+  styles.sort(function (a, b) { return a.specificity - b.specificity; });
+
+  return styles.reduce(function (memo, item) {
+    apply(memo, item.styles);
+    return memo;
+  }, {});
+}
+
+// ## resolveSubtree
+// Recursively resolves styles while walking down a tree of styles
+function resolveSubtree (subtree, properties, out, selectors, specificity) {
+  var selector = selectors.shift();
+  if (!selector) return;
+
+  (Array.isArray(selector)? selector : [selector]).forEach(function (iter) {
+    var newSubtree = subtree[iter];
+
+    // update specificity
+    specificity += howSpecific(iter);
+
+    if (newSubtree) {
+      resolveMedia(newSubtree, properties);
+      out.push({specificity: specificity, styles: newSubtree.$styles});
+
+      resolveSubtree(newSubtree, properties, out, selectors, specificity);
+    }
+  });
+}
+
+// ## buildSelectorList
+// Builds a list of lists of selectors based on a type and set of attributes. 
+// Return will look like this:
+// [
+//   ['Label', '#foosomeId', ['.class', '.names']],
+//   ['Label', ['.class', '.names']],
+//   ['#foosomeId', ['.class', '.names']],
+//   [['.class', '.names']]
+// ]
+
+function buildSelectorList (type, attributes) {
+  // Full is the 'full selector', containing type, id, and classes
+  var full = [type];
+  var classes;
+  var ret = [full];
+
+  // Add the id to the full selector
+  if (attributes.id) {
+    full.push('#' + attributes.id);
+    ret.push(['#' + attributes.id]);
+  }
+
+  if (attributes['class']) {
+    classes = attributes['class'].split(' ').map(function (iter) {
+      return '.' + strip(iter);
+    });
+    // Add the classes to the full selector
+    full.push(classes);
+
+    // if there's an id, we need a separate [type, classes] selector. Otherwise
+    // the full selector will be just [type, classes] since there's no id.
+    if (attributes.id) ret.push([type, classes]);
+
+    // Add the bare classes selector
+    ret.push([classes]);
+  }
+
+  if (attributes.id && attributes['class'])
+    ret.push(['#' + attributes.id, classes]);
+
+  return ret;
+}
+
+var resolveMemo = {};
+
+// ## resolve
+// Resolve styles
+//  * `stylesheets`: output of the stylesheet compiler
+//  * `properties`: props used for media queries
+//  * `type`: type of the object we're resolving styles for
+//  * `attributes`: attributes of the object. these override all styles we
+//    compute. also this is where we get id and class from
+//  Don't worry its memoized   :  ]
+
+function resolve (stylesheets, properties, type, attributes) {
+  var memoKey = type + "#" + attributes.id + "." + attributes['class'];
+
+  var collapsed;
+
+  if (resolveMemo[memoKey]) {
+    collapsed = resolveMemo[memoKey];
+  } 
+  
+  else {
+    var selectorList = buildSelectorList(type, attributes);
+    var out = [];
+
+    selectorList.forEach(function (iter) {
+      resolveSubtree(stylesheets, properties, out, iter.concat(), 0);
+    });
+
+    // Collapse the styles according to specificty
+    collapsed = collapse(out);
+
+    resolveMemo[memoKey] = collapsed;
+  }
+
+  var styles = {};
+  apply(styles, collapsed);
+  //apply(styles, attributes);
+  return styles;
+}
+
+function clearResolveMemo () {
+  resolveMemo = {};
+}
+
+exports.clearResolveMemo = clearResolveMemo;
+exports.resolve = resolve;
+exports.buildSelectorList = buildSelectorList;
+exports.defaultApply = defaultApply;
+exports.apply = apply;
+exports.strip = strip;
+exports.resolveMedia = resolveMedia;
+
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>
