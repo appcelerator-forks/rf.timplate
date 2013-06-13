@@ -137,7 +137,7 @@ describe('styler', function () {
         'class': "baz fuz",
         top: 50
       });
-      assert.equal(styles.top, 50);
+      assert.equal(styles.top, 10);
     });
 
   });
