@@ -66,12 +66,26 @@ var screenInfo = function () {
 
 var info = screenInfo();
 
-if (info.diag > 6) props.formfactor = 'tablet';
-else if (info.diag > 2.5) props.formfactor = 'phone';
-else props.formfactor = 'tinyphone';
+if (info.diag > 6) {
+  props.formfactor = 'tablet';
+  props.tablet = true;
+  props.tinyphone = false;
+  props.phone = false;
+}
 
-if (props.formfactor == 'tablet') props.tablet = true;
-else props.tablet = false;
+else if (info.diag > 2.5) {
+  props.formfactor = 'phone';
+  props.tablet = false;
+  props.tinyphone = false;
+  props.phone = true;
+}
+
+else {
+  props.formfactor = 'tinyphone';
+  props.tablet = false;
+  props.tinyphone = true;
+  props.phone = false;
+}
 
 module.exports = props;
 
