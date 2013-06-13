@@ -134,15 +134,18 @@ if (program.watch) {
   var clients = {};
 
   io.sockets.on('connection', function (socket) {
-    var id = data.id;
+    var id;
 
     socket.on('register', function (data) {
+      id = data.id;
       clients[data.id] = data;
-      console.log("Got connection from " + data.model + ", id:" + data.id);
+      console.log("Connect: " + data.osname + " " + data.model + ", id: " + data.id);
     });
 
-    socket.on('disconnect', function (data) {
-      console.log("Disconnect: " + data.model + ", id:" + data.id);
+    socket.on('disconnect', function () {
+      data = clients[id];
+      if (!data) return;
+      console.log("Disconnect: " + data.osname + " " + data.model + ", id: " + data.id);
       delete clients[id];
     });
   });
