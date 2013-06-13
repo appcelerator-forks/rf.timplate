@@ -11,6 +11,13 @@ function defaultApply (dest, src) {
 // ## apply
 // applies into dest from src
 function apply (dest, src) {
+  if (!dest) {
+    console.log("Apply called with falsy dest");
+    console.log(arguments);
+    console.log(new Error().stack);
+    return;
+  }
+
   for (var iter in src)
     if (src.hasOwnProperty(iter))
       dest[iter] = src[iter];
@@ -28,9 +35,12 @@ function strip (str) {
 // ## resolveMedia
 // Resolves media queries
 function resolveMedia (node, properties) {
-  if (node.$media) node.$media.forEach(function (media) {
+  if (node.$media) {
+    node.$styles = node.$styles || {};
+    node.$media.forEach(function (media) {
       if (media.query(properties)) apply(node.$styles, media.styles);
     });
+  }
 }
 
 // ## howSpecific
