@@ -5,7 +5,6 @@ var maps = require('timplate/maps');
 var props = require('timplate/props');
 
 function make (type, args) {
-  console.log(type);
   if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
   else return new maps.constructors[type](args);
 }

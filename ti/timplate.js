@@ -25,15 +25,10 @@ module.exports = (function() {
     var io = require('timplate/socket.io');
     var socket = io.connect(host || "localhost:3456");
 
-    socket.emit('register', {
-      id: Ti.Platform.id,
-      model: Ti.Platform.model
-    });
-
     timplate.updates = new EventEmitter();
 
     socket.on('styles', function (styles) {
-      console.log("stuff");
+      console.log("Received stylesheet update");
       try {
         stylesheets = eval('(' + styles + ')');
         styler.clearResolveMemo();
@@ -44,8 +39,13 @@ module.exports = (function() {
       }
     });
 
-    socket.on('connected', function () {
+    socket.on('connect', function () {
       console.log("connected");
+      socket.emit('register', {
+        id: Ti.Platform.id,
+        osname: Ti.Platform.osname,
+        model: Ti.Platform.model
+      });
     });
 
     socket.on('connect_failed', function (event) {
