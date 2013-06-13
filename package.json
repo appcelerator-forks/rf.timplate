@@ -1,0 +1,19 @@
+{
+  "name"      : "timplate",
+  "preferGlobal": "true",
+  "description"  : "Titanium templating & stylesheets",
+  "version"    : "0.0.1",
+  "homepage"    : "http://github.com/russfrank/timplate",
+  "author"     : "Russ Frank <me@russfrank.us>",
+  "keywords"    : ["css", "mobile", "titanium"],
+  "engines"    : {"node": "> 0.8.x"},
+  "bin"       : {"timplate": "./tool.js"},
+  "dependencies" : {
+    "stylus": ">=0.19.0", 
+    "less": ">=1.2", 
+    "walk": ">=2.0.0",
+    "commander": "1.1.x",
+    "jade": "0.x.x",
+    "xml2js": "0.2.x"
+  }
+}

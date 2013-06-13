@@ -1,0 +1,9 @@
+{
+  "bitwise": true,
+  "immed": true,
+  "predef": ["console", "require", "module", "exports", "alert", "setTimeout", "setInterval", "clearInterval", "clearTimeout", "describe", "it"],
+  "latedef": true,
+  "newcap": true,
+  "noempty": false,
+  "undef": true
+}

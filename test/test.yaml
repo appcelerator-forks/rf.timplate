@@ -1,0 +1,9 @@
+"Label, Button":
+  $tablet and android:
+    top: 50
+
+"Label#primary":
+  left: 10
+
+"Button.foo.bar":
+  top: 30
