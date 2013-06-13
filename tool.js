@@ -14,7 +14,7 @@ var eco = require('eco');
 var tosource = require('tosource');
 var _ = require('lodash');
 
-var processCSS = require('./css');
+var processCSS = require('./lib/css');
 
 program
   .version('0.0.1')

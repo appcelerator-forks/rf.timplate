@@ -1,4 +1,9 @@
-var compiler = require('../css');
+var compiler;
+if (process.env.TIMPLATE_COV)
+  compiler = require('../lib-cov/css');
+else
+  compiler = require('../lib/css');
+
 var YAML = require('libyaml');
 var assert = require('assert');
 var util = require('util');

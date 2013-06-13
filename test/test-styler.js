@@ -1,5 +1,12 @@
 var mocha = require('mocha');
-var styler = require('../ti/styler');
+
+var styler;
+
+if (process.env.TIMPLATE_COV)
+  styler = require('../ti-cov/styler');
+else
+  styler = require('../ti/styler');
+
 var assert = require('chai').assert;
 
 describe('styler', function () {

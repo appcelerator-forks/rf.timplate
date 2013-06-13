@@ -3,12 +3,14 @@
 all: code_quality coverage
 
 code_quality:
-	plato -d code_quality tokenizer.js tool.js ti/styler.js ti/templater.js ti/timplate.js
+	plato -d code_quality lib/tokenizer.js lib/css.js tool.js ti/styler.js ti/templater.js ti/timplate.js
 
 coverage:
-	jscoverage --no-highilght ti ti-cov
-	TIMPLATE_COV=1 mocha -R html-cov > coverage.html
+	jscoverage --no-highlight ti ti-cov
+	jscoverage --no-highlight lib lib-cov
+	TIMPLATE_COV=1 mocha -R html-cov > code_quality/coverage.html; true
 	rm -rf ti-cov
+	rm -rf lib-cov
 
 test:
 	mocha 
