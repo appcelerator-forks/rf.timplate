@@ -28,6 +28,7 @@ module.exports = (function() {
     timplate.updates = new EventEmitter();
 
     socket.on('styles', function (styles) {
+      /*jshint evil:true */
       console.log("Received stylesheet update");
       try {
         stylesheets = eval('(' + styles + ')');
@@ -53,7 +54,7 @@ module.exports = (function() {
     });
 
     socket.on('error', function (event) {
-      console.log("error");
+      console.log("error", event);
     });
   }
 
@@ -80,9 +81,21 @@ module.exports = (function() {
       var ret = new EventEmitter();
       ret.view = templater.create(stylesheets, doc.firstChild, ret, handler);
 
-      if (timplate.updates) timplate.updates.on('styles', function () {
-        templater.updateStyles(stylesheets, ret.tree);
-      });
+      if (timplate.updates) {
+        var onStylesUpdate = function () {
+          templater.updateAllStyles(stylesheets, ret.tree);
+        };
+
+        timplate.updates.on('styles', onStylesUpdate);
+
+        var remover = function () {
+          ret.tree.view.removeEventListener('close', remover);
+          timplate.updates.off('styles', onStylesUpdate);
+        };
+
+        if (ret.tree.type == "Window") 
+          ret.tree.view.addEventListener('close', remover);
+      }
 
       return ret;
     };

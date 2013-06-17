@@ -11,7 +11,7 @@ var path = require('path');
 var ejs = require('ejs');
 var handlebars = require('handlebars');
 var eco = require('eco');
-var tosource = require('tosource');
+var tosource = require('./lib/tosource');
 var _ = require('lodash');
 
 var processCSS = require('./lib/css');
@@ -118,11 +118,14 @@ function parseStylesheets(stylesheetsDir, done) {
   });
 }
 
+var lastStylesheets;
+
 parseTemplates(program.templates, program.output);
 
-parseStylesheets(program.stylesheets, function (err, data) {
+parseStylesheets(program.stylesheets, function (err, data, rawSrc) {
   if (err) return console.log(err);
 
+  lastStylesheets = rawSrc;
   var out = path.join(program.output, "styles.js");
   fs.writeFile(out, data);
 });
@@ -135,6 +138,8 @@ if (program.watch) {
 
   io.sockets.on('connection', function (socket) {
     var id;
+
+    socket.emit('styles', lastStylesheets);
 
     socket.on('register', function (data) {
       id = data.id;
@@ -159,7 +164,7 @@ if (program.watch) {
       var out = path.join(program.output, "styles.js");
       fs.writeFile(out, data);
 
-      //console.log("Updating styles");
+      lastStylesheets = rawSrc;
       io.sockets.emit('styles', rawSrc);
     });
   });

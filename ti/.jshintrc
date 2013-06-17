@@ -1,7 +1,7 @@
 {
   "bitwise": true,
   "immed": true,
-  "predef": ["console", "require", "module", "exports", "alert", "setTimeout", "setInterval", "clearInterval", "clearTimeout", "describe", "it"],
+  "predef": ["console", "require", "module", "exports", "alert", "setTimeout", "setInterval", "clearInterval", "clearTimeout", "describe", "it", "Ti", "process"],
   "latedef": true,
   "newcap": true,
   "noempty": false,

@@ -44,17 +44,21 @@ function handleAttributes (xmlAttributes, /*out*/ attributes, /*out*/ events) {
   }
 }
 
-function updateStyles (stylesheets, root) {
+function updateStyles (stylesheets, view) {
   var styles = 
-    styler.resolve(stylesheets, props, root.attributes.type, root.attributes);
+    styler.resolve(stylesheets, props, view.attributes.type, view.attributes);
 
-  if (root.view.applyProperties)
-    root.view.applyProperties(styles);
+  if (view.view.applyProperties)
+    view.view.applyProperties(styles);
   else
-    for (var ii in styles) root.view[ii] = styles[ii];
+    for (var ii in styles) view.view[ii] = styles[ii];
+}
+
+function updateAllStyles (stylesheets, root) {
+  updateStyles(stylesheets, root);
 
   for (var i = 0; i < root.children.length; i++) {
-    updateStyles(stylesheets, root.children[i]);
+    updateAllStyles(stylesheets, root.children[i]);
   }
 }
 
