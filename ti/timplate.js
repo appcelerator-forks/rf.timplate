@@ -40,6 +40,23 @@ module.exports = (function() {
       }
     });
 
+    socket.on('templates', function (newTemplates) {
+      /*jshint evil:true */
+      console.log("Recevied template update");
+
+      try {
+        var jade = require('/timplate/jade-runtime');
+        var Handlebars = require('/timplate/handlebars.runtime'); 
+        templates = eval(newTemplates);
+        timplate.updates.emit('templates');
+      }
+
+      catch (e) {
+        console.log("Error receiving template update");
+        console.log(e);
+      }
+    });
+
     socket.on('connect', function () {
       console.log("connected");
       socket.emit('register', {

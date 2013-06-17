@@ -93,7 +93,12 @@ function parseTemplates(templatesDir, outputDir, done) {
       "var Handlebars = require('/timplate/handlebars.runtime'); " +
       "exports.types = {" + typeLines.join(",") + "}; " +
       "exports.fns = {" + templateLines.join(",") + "}}());";
-    fs.writeFile(path.join(outputDir, "templates.js"), buf, done);
+    fs.writeFile(path.join(outputDir, "templates.js"), buf, function () {
+      /*jshint evil:true*/
+      done(null, "({" +
+        "types: {" + typeLines.join(",") + "}," +
+        "fns: {" + templateLines.join(",") + "}})");
+    });
   });
 }
 
@@ -118,9 +123,9 @@ function parseStylesheets(stylesheetsDir, done) {
   });
 }
 
-var lastStylesheets;
+var lastStylesheets, lastTemplates;
 
-parseTemplates(program.templates, program.output);
+parseTemplates(program.templates, program.output, function () {});
 
 parseStylesheets(program.stylesheets, function (err, data, rawSrc) {
   if (err) return console.log(err);
@@ -139,7 +144,8 @@ if (program.watch) {
   io.sockets.on('connection', function (socket) {
     var id;
 
-    socket.emit('styles', lastStylesheets);
+    if (lastStylesheets) socket.emit('styles', lastStylesheets);
+    if (lastTemplates) socket.emit('templates', lastTemplates);
 
     socket.on('register', function (data) {
       id = data.id;
@@ -148,7 +154,7 @@ if (program.watch) {
     });
 
     socket.on('disconnect', function () {
-      data = clients[id];
+      var data = clients[id];
       if (!data) return;
       console.log("Disconnect: " + data.osname + " " + data.model + ", id: " + data.id);
       delete clients[id];
@@ -166,6 +172,15 @@ if (program.watch) {
 
       lastStylesheets = rawSrc;
       io.sockets.emit('styles', rawSrc);
+    });
+  });
+
+  fs.watch(program.templates, function (event) {
+    parseTemplates(program.templates, program.output, function (err, data) {
+      if (err) return console.log(err);
+
+      lastTemplates = data;
+      io.sockets.emit('templates', data);
     });
   });
 }

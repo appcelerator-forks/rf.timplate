@@ -238,5 +238,6 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
 exports.goodNodeType = goodNodeType;
 exports.create = create;
 exports.updateStyles = updateStyles;
+exports.updateAllStyles = updateAllStyles;
 
 }());
