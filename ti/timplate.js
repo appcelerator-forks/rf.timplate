@@ -95,8 +95,7 @@ module.exports = (function() {
       var doc = Ti.XML.parseString(xml);
       if (Ti.Platform.osname == "android") doc = doc.firstChild;
 
-      var ret = new EventEmitter();
-      ret.view = templater.create(stylesheets, doc.firstChild, ret, handler);
+      var ret = templater.create(stylesheets, doc.firstChild);
 
       if (timplate.updates) {
         var onStylesUpdate = function () {

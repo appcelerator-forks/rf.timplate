@@ -162,7 +162,7 @@ if (program.watch) {
   });
 
   fs.watch(program.stylesheets, function (event) {
-    parseStylesheets(program.stylesheets, function (err, data, rawSrc, size) {
+    parseStylesheets(program.stylesheets, _.throttle(function (err, data, rawSrc, size) {
       if (err) return console.log(err);
 
       if (size === 0) return;
@@ -172,16 +172,16 @@ if (program.watch) {
 
       lastStylesheets = rawSrc;
       io.sockets.emit('styles', rawSrc);
-    });
+    }, 2000));
   });
 
-  fs.watch(program.templates, function (event) {
+  fs.watch(program.templates, _.throttle(function (event) {
     parseTemplates(program.templates, program.output, function (err, data) {
       if (err) return console.log(err);
 
       lastTemplates = data;
       io.sockets.emit('templates', data);
     });
-  });
+  }, 2000));
 }
 
