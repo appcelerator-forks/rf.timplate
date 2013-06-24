@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">74.01</p>
+      <p class="stat">74.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">162</p>
+      <p class="stat">182</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">24.17</p>
+      <p class="stat">25.84</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.89</p>
+      <p class="stat">2.16</p>
     </div>
   </div>
 </div>
@@ -103,7 +103,7 @@ var path = require('path');
 var ejs = require('ejs');
 var handlebars = require('handlebars');
 var eco = require('eco');
-var tosource = require('tosource');
+var tosource = require('./lib/tosource');
 var _ = require('lodash');
 
 var processCSS = require('./lib/css');
@@ -185,7 +185,12 @@ function parseTemplates(templatesDir, outputDir, done) {
       "var Handlebars = require('/timplate/handlebars.runtime'); " +
       "exports.types = {" + typeLines.join(",") + "}; " +
       "exports.fns = {" + templateLines.join(",") + "}}());";
-    fs.writeFile(path.join(outputDir, "templates.js"), buf, done);
+    fs.writeFile(path.join(outputDir, "templates.js"), buf, function () {
+      /*jshint evil:true*/
+      done(null, "({" +
+        "types: {" + typeLines.join(",") + "}," +
+        "fns: {" + templateLines.join(",") + "}})");
+    });
   });
 }
 
@@ -210,11 +215,14 @@ function parseStylesheets(stylesheetsDir, done) {
   });
 }
 
-parseTemplates(program.templates, program.output);
+var lastStylesheets, lastTemplates;
 
-parseStylesheets(program.stylesheets, function (err, data) {
+parseTemplates(program.templates, program.output, function () {});
+
+parseStylesheets(program.stylesheets, function (err, data, rawSrc) {
   if (err) return console.log(err);
 
+  lastStylesheets = rawSrc;
   var out = path.join(program.output, "styles.js");
   fs.writeFile(out, data);
 });
@@ -228,6 +236,9 @@ if (program.watch) {
   io.sockets.on('connection', function (socket) {
     var id;
 
+    if (lastStylesheets) socket.emit('styles', lastStylesheets);
+    if (lastTemplates) socket.emit('templates', lastTemplates);
+
     socket.on('register', function (data) {
       id = data.id;
       clients[data.id] = data;
@@ -235,7 +246,7 @@ if (program.watch) {
     });
 
     socket.on('disconnect', function () {
-      data = clients[id];
+      var data = clients[id];
       if (!data) return;
       console.log("Disconnect: " + data.osname + " " + data.model + ", id: " + data.id);
       delete clients[id];
@@ -243,7 +254,7 @@ if (program.watch) {
   });
 
   fs.watch(program.stylesheets, function (event) {
-    parseStylesheets(program.stylesheets, function (err, data, rawSrc, size) {
+    parseStylesheets(program.stylesheets, _.throttle(function (err, data, rawSrc, size) {
       if (err) return console.log(err);
 
       if (size === 0) return;
@@ -251,10 +262,19 @@ if (program.watch) {
       var out = path.join(program.output, "styles.js");
       fs.writeFile(out, data);
 
-      console.log("Updating styles");
+      lastStylesheets = rawSrc;
       io.sockets.emit('styles', rawSrc);
-    });
+    }, 2000));
   });
+
+  fs.watch(program.templates, _.throttle(function (event) {
+    parseTemplates(program.templates, program.output, function (err, data) {
+      if (err) return console.log(err);
+
+      lastTemplates = data;
+      io.sockets.emit('templates', data);
+    });
+  }, 2000));
 }</textarea>
   </div>
 </div>

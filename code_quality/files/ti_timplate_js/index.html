@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.42</p>
+      <p class="stat">69.27</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">94</p>
+      <p class="stat">113</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">20.02</p>
+      <p class="stat">20.44</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.71</p>
+      <p class="stat">0.82</p>
     </div>
   </div>
 </div>
@@ -91,7 +91,7 @@
 <div class="container">
   <div class="row">
     <textarea id="file-source" class="span12">module.exports = (function() {
-  var templater = require('timplate/templater');
+  var TemplateWrapper = require('timplate/templater');
   var styler = require('timplate/styler');
 
   var templates;
@@ -120,6 +120,7 @@
     timplate.updates = new EventEmitter();
 
     socket.on('styles', function (styles) {
+      /*jshint evil:true */
       console.log("Received stylesheet update");
       try {
         stylesheets = eval('(' + styles + ')');
@@ -127,6 +128,23 @@
         timplate.updates.emit('styles');
       } catch (e) {
         console.log('Error receiving styles');
+        console.log(e);
+      }
+    });
+
+    socket.on('templates', function (newTemplates) {
+      /*jshint evil:true */
+      console.log("Recevied template update");
+
+      try {
+        var jade = require('/timplate/jade-runtime');
+        var Handlebars = require('/timplate/handlebars.runtime'); 
+        templates = eval(newTemplates);
+        timplate.updates.emit('templates');
+      }
+
+      catch (e) {
+        console.log("Error receiving template update");
         console.log(e);
       }
     });
@@ -145,7 +163,7 @@
     });
 
     socket.on('error', function (event) {
-      console.log("error");
+      console.log("error", event);
     });
   }
 
@@ -157,26 +175,27 @@
     return function (locals, handler) {
       var template = templates.fns[name], type = templates.types[name];
 
-      var xml = template(locals);
+      var wrapper = new TemplateWrapper(template, type, stylesheets);
+      wrapper.update(locals);
 
-      // Wrap the whole thing in a Timplate tag if it isn't already. The root
-      // element can't have attributes, but we want to allow it to have
-      // attributes. This is hacky.
-      if (xml.indexOf("<Timplate>") !== 0) {
-        xml = "<Timplate>" + xml + "</Timplate>";
+      if (timplate.updates) {
+        var onStylesUpdate = function () {
+          wrapper.stylesheets = stylesheets;
+          wrapper.updateAllStyles();
+        };
+
+        timplate.updates.on('styles', onStylesUpdate);
+
+        var remover = function () {
+          wrapper.tree.view.removeEventListener('close', remover);
+          timplate.updates.off('styles', onStylesUpdate);
+        };
+
+        if (wrapper.tree.type == "Window") 
+          wrapper.tree.view.addEventListener('close', remover);
       }
 
-      var doc = Ti.XML.parseString(xml);
-      if (Ti.Platform.osname == "android") doc = doc.firstChild;
-
-      var ret = new EventEmitter();
-      ret.view = templater.create(stylesheets, doc.firstChild, ret, handler);
-
-      if (timplate.updates) timplate.updates.on('styles', function () {
-        templater.updateStyles(stylesheets, ret.tree);
-      });
-
-      return ret;
+      return wrapper;
     };
   }
 

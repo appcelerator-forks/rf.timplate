@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">57.61</p>
+      <p class="stat">59.84</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">235</p>
+      <p class="stat">299</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">59.71</p>
+      <p class="stat">58.00</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.00</p>
+      <p class="stat">2.64</p>
     </div>
   </div>
 </div>
@@ -95,6 +95,109 @@
 var styler = require('timplate/styler');
 var maps = require('timplate/maps');
 var props = require('timplate/props');
+var EventEmitter = require('timplate/eventemitter2').EventEmitter2;
+
+function TemplateWrapper (fn, type, stylesheets) {
+  var self = this;
+
+  EventEmitter.call(this);
+
+  self.fn = fn;
+  self.type = type;
+  self.stylesheets = stylesheets;
+  self.events = [];
+
+  self.tree = {children: []};
+}
+
+// Inherit from EventEmitter
+
+TemplateWrapper.prototype = Object.create(EventEmitter.prototype, {
+  constructor: {
+    value: EventEmitter,
+    enumerable: false,
+    writable: true,
+    configurable: true
+  }
+});
+
+// ## forward
+// Forwards all events to the given handler. We'll look for an onEvent or event
+// method on handler, which will be called on the event.
+TemplateWrapper.prototype.forward = function (handler) {
+  var self = this;
+
+  self.events.forEach(function (name) {
+    var correctedName = "on" + name.slice(0, 1).toUpperCase() + name.slice(1);
+
+    if (handler[correctedName]) self.on(name, function (event) {
+      handler[correctedName](event);
+    });
+
+    if (handler[name]) self.on(name, function (event) {
+      handler[name](event);
+    });
+  });
+};
+
+// ## update
+// Re-runs the templater function and recreates any part of the layout that
+// needs to be recreated.
+TemplateWrapper.prototype.update = function (locals) {
+  var self = this;
+
+  self.getXML(locals);
+  self.create(self.doc, "top", self.tree);
+};
+
+var ios = Ti.Platform.osname !== "android";
+
+// ## getXML
+// Gets compiled xml out of the template function using some set of locals
+TemplateWrapper.prototype.getXML = function (locals) {
+  var self = this;
+  var xml = self.fn(locals);
+
+  if (xml.indexOf("<Timplate>") !== 0) {
+    xml = "<Timplate>" + xml + "</Timplate>";
+  }
+
+  var doc = Ti.XML.parseString(xml);
+  doc = doc.firstChild;
+  if (!ios) doc = doc.firstChild;
+
+  self.doc = doc;
+
+  return doc;
+};
+
+TemplateWrapper.prototype.updateStyles = function (view) {
+  var self = this;
+
+  var styles = styler.resolve(
+    self.stylesheets, 
+    props, 
+    view.attributes.type, 
+    view.attributes
+  );
+
+  if (view.view.applyProperties)
+    view.view.applyProperties(styles);
+  else
+    for (var ii in styles) view.view[ii] = styles[ii];
+};
+
+TemplateWrapper.prototype.updateAllStyles = function (root) {
+  var self = this;
+
+  root = root || self.tree;
+
+  self.updateStyles(root);
+
+  for (var i = 0; i < root.children.length; i++) {
+    self.updateAllStyles(root.children[i]);
+  }
+};
 
 function make (type, args) {
   if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
@@ -135,52 +238,32 @@ function handleAttributes (xmlAttributes, /*out*/ attributes, /*out*/ events) {
     }
   }
 }
-
-function updateStyles (stylesheets, root) {
-  var styles = 
-    styler.resolve(stylesheets, props, root.attributes.type, root.attributes);
-
-  for (var ii in styles) root.view[ii] = styles[ii];
-
-  for (var i = 0; i < root.children.length; i++) {
-    updateStyles(stylesheets, root.children[i]);
-  }
-}
-
 // ## create
 // Recursively creates elements based on the XML tree.  Returns top level view.
-// Events are handled in 2 ways - we fire an event on `emitter` and we check
-// to see if there is a function to be called on `handler`.
+// Events are handled in 2 ways - we fire an event on `emitter`.
 //
-//  * `stylesheets` stylesheets from the compiler
-//  * `node` the current node we're at in the tree
-//  * `emitter` the emitter we're firing events on
-//  * `handler` the object with methods that will handle events
+//  * `sourceNode` the current node we're at in the tree
 //  * `parentType` type of the parent of the current node
 //  * `newTreeNode` current node in the new view tree that we're building
 
-function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
+TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode) {
+  var self = this;
   var iter;
-  var type = node.nodeName;
-  var nodeType = node.nodeType;
+  var type = sourceNode.nodeName;
+  var nodeType = sourceNode.nodeType;
   var attributes = {};
   var events = {};
+  var topLevel = false;
 
-  // we're building a new view tree of our own thats just js objects
-  if (!newTreeNode) {
-    newTreeNode = {children: [], type: type};
-    emitter.tree = newTreeNode;
-  }
-
-  if (goodNodeType(node) == "string") return node.nodeValue;
-  handleAttributes(node.attributes, attributes, events);
+  if (goodNodeType(sourceNode) == "string") return sourceNode.nodeValue;
+  handleAttributes(sourceNode.attributes, attributes, events);
 
   // If the child is a text node, use it as the text or title property of the
   // new element. Edge case. We do this here instead of in the lower child
   // processing loop because this way we set the attribute before creating
   // the element.
-  if (node.firstChild) {
-    var child = node.firstChild, val = child.nodeValue;
+  if (sourceNode.firstChild) {
+    var child = sourceNode.firstChild, val = child.nodeValue;
     if (goodNodeType(child) == "string") {
       if (type == "Label") attributes.text = val;
       else attributes.title = val;
@@ -193,7 +276,7 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
   styler.defaultApply(newTreeNode.attributes, attributes);
   newTreeNode.attributes.type = type;
 
-  var styles = styler.resolve(stylesheets, props, type, attributes);
+  var styles = styler.resolve(self.stylesheets, props, type, attributes);
   styler.defaultApply(attributes, styles);
 
   var item;
@@ -206,6 +289,7 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
       bindId: attributes.bindId,
       type: 'Ti.UI.' + maps.types[type]
     };
+    delete attributes.template;
   } else if (parentType == "Item") {
     // If the parent is an item, this needs to just be an object
     item = attributes;
@@ -218,7 +302,7 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
   // For storing section items or list items when iterating over children
   var listItems = [];
 
-  var children = node.childNodes;
+  var children = sourceNode.childNodes;
   var len = children.length;
 
   for (iter = 0; iter < len; iter++) {
@@ -228,11 +312,8 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
     // child has to do weird edge case stuff. Also, if our parent was a 
     // Template, we need to continue doing weird edge case stuff, so we pass
     // "Template" as the parentType again.
-    var newChild = create(
-      stylesheets,
+    var newChild = self.create(
       children.item(iter), 
-      emitter, 
-      handler, 
       parentType == "Template"? "Template" : type,
       newTreeChildNode
     );
@@ -261,20 +342,14 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
     }
   }
 
+  // Template events must be handled before the list is created
   if (type == "Template") {
-    Object.keys(events).forEach(function (iter) {
-      var name = events[iter];
-      events[iter] = function (event) {
-        emitter.emit(name, event);
-        var correctedName = 'on' + name.slice(0, 1).toUpperCase() + name.slice(1);
-
-        if (typeof handler[correctedName] == "function")
-          handler[correctedName].call(handler, event);
-        if (typeof handler[name] == "function")
-          handler[name].call(handler, event);
+    attributes.events = Object.keys(events).reduce(function (memo, name) {
+      memo[name] = function (event) {
+        self.emit(events[name], event);
       };
-    });
-    attributes.events = events;
+      return memo;
+    }, {});
   }
 
   if (type == "List") {
@@ -283,46 +358,35 @@ function create (stylesheets, node, emitter, handler, parentType, newTreeNode) {
     attributes.sections = listItems;
     item = make(type, attributes);
   } else if (type == "Section") {
+    console.log(JSON.stringify(listItems[0]));
     item.setItems(listItems);
   }
 
-  // Handle events
-  if (attributes.id && !emitter.hasOwnProperty(attributes.id))
-    emitter[attributes.id] = item;
+  // add a reference to the item onto the emitter
+  if (attributes.id && !self.hasOwnProperty(attributes.id))
+    self[attributes.id] = item;
 
+  // Regular events have to be handled after the item is created
   if (type != "Template") {
     Object.keys(events).forEach(function (eventName) {
       item.addEventListener(eventName, function (event) {
-        emitter.emit(events[eventName], event);
+        self.emit(events[eventName], event);
       });
-
-      if (handler) {
-        // Check if the handler obj has onHandlerName
-        var name = events[eventName];
-        var correctedName = 'on' + name.slice(0, 1).toUpperCase() + name.slice(1);
-        if (typeof handler[correctedName] == "function")
-          item.addEventListener(eventName, function (event) {
-            handler[correctedName].call(handler, event);
-          });
-
-        // Check if handler obj has handlerName
-        if (typeof handler[name] == "function")
-          item.addEventListener(eventName, function (event) {
-            handler[name].call(handler, event);
-          });
-      }
     });
   }
 
   // add a reference to the newly created view on the new tree node
   newTreeNode.view = item;
+  newTreeNode.type = type;
+  // Keep track of events so we can remove them later
+  newTreeNode.events = Object.keys(events);
+
+  for (var ii in events) self.events.push(events[ii]);
 
   return item;
-}
+};
 
-exports.goodNodeType = goodNodeType;
-exports.create = create;
-exports.updateStyles = updateStyles;
+module.exports = TemplateWrapper;
 
 }());</textarea>
   </div>
