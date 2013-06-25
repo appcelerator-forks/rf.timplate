@@ -3,7 +3,7 @@
 all: code_quality coverage
 
 code_quality:
-	plato -d code_quality lib/tokenizer.js lib/css.js tool.js ti/styler.js ti/templater.js ti/timplate.js
+	plato -d code_quality lib/tokenizer.js lib/css.js tool.js ti/styler.js ti/templater.js ti/timplate.js ti/proxy.js
 
 coverage:
 	jscoverage --no-highlight ti ti-cov
