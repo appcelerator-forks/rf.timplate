@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">60.17</p>
+      <p class="stat">59.51</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">135</p>
+      <p class="stat">140</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">21.08</p>
+      <p class="stat">21.49</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.03</p>
+      <p class="stat">1.08</p>
     </div>
   </div>
 </div>
@@ -155,7 +155,7 @@ ctors.Template = function (type, attributes, children, parentType) {
 
 var ios = Ti.Platform.osname !== "android";
 
-function makeProxy (type, attributes, children, parentType) {
+function makeProxy (type, attributes, children, parentType, textValue) {
   if (type == "List") {
     // List creation is deferred until this point so we can construct w/
     // the sections
@@ -166,6 +166,11 @@ function makeProxy (type, attributes, children, parentType) {
       else attributes.sections.push(item);
     });
     if (attributes.sections.length === 0) delete attributes.sections;
+  }
+
+  if (textValue) {
+    if (type == "Label") attributes.text = textValue;
+    else attributes.title = textValue;
   }
 
   var proxy = Ti.UI['create' + proxyTypes[type]](attributes);
@@ -181,7 +186,7 @@ function makeProxy (type, attributes, children, parentType) {
   return proxy;
 }
 
-function make (type, attributes, children, parentType) {
+function make (type, attributes, children, parentType, textValue) {
   if (parentType == "Template") {
     // In template mode we need to output a template fragment instead of an
     // actual view.
