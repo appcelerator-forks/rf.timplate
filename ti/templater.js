@@ -1,9 +1,10 @@
 (function () {
 
 var styler = require('timplate/styler');
-var maps = require('timplate/maps');
 var props = require('timplate/props');
 var EventEmitter = require('timplate/eventemitter2').EventEmitter2;
+
+var proxy = require('timplate/proxy');
 
 function TemplateWrapper (fn, type, stylesheets) {
   var self = this;
@@ -107,11 +108,6 @@ TemplateWrapper.prototype.updateAllStyles = function (root) {
   }
 };
 
-function make (type, args) {
-  if (type in maps.types) return Ti.UI['create' + maps.types[type]](args);
-  else return new maps.constructors[type](args);
-}
-
 // ## goodNodeType
 // Returns node type in an easier to use way
 
@@ -148,7 +144,6 @@ function handleAttributes (xmlAttributes, /*out*/ attributes, /*out*/ events) {
 }
 // ## create
 // Recursively creates elements based on the XML tree.  Returns top level view.
-// Events are handled in 2 ways - we fire an event on `emitter`.
 //
 //  * `sourceNode` the current node we're at in the tree
 //  * `parentType` type of the parent of the current node
@@ -187,31 +182,11 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
   var styles = styler.resolve(self.stylesheets, props, type, attributes);
   styler.defaultApply(attributes, styles);
 
-  var item;
-  if (parentType == "Template") {
-    // In template mode we need to output a template fragment instead of an
-    // actual view.
-    item = {
-      properties: attributes,
-      template: attributes.template,
-      bindId: attributes.bindId,
-      type: 'Ti.UI.' + maps.types[type]
-    };
-    delete attributes.template;
-  } else if (parentType == "Item") {
-    // If the parent is an item, this needs to just be an object
-    item = attributes;
-    item.name = type;
-  } else if (type != "List") {
-    // We have to defer list creation to when we've collected all templates
-    item = make(type, attributes);
-  }
+  // we will put children of the current node here
+  var children = [];
 
-  // For storing section items or list items when iterating over children
-  var listItems = [];
-
-  var children = sourceNode.childNodes;
-  var len = children.length;
+  var childNodes = sourceNode.childNodes;
+  var len = childNodes.length;
 
   for (iter = 0; iter < len; iter++) {
     var newTreeChildNode = {children: []};
@@ -221,58 +196,55 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
     // Template, we need to continue doing weird edge case stuff, so we pass
     // "Template" as the parentType again.
     var newChild = self.create(
-      children.item(iter), 
+      childNodes.item(iter), 
       parentType == "Template"? "Template" : type,
       newTreeChildNode
     );
 
-    if (typeof newChild == "string") continue; // ignore text / cdata nodes
+    if (typeof newChild == "string") {
+      console.log("newChild:", newChild);
+      continue; // ignore text / cdata nodes
+    }
 
     newTreeNode.children.push(newTreeChildNode);
-
-    if (type == "Template" || parentType == "Template") {
-      // current type is template, so the new child is a view to be added
-      // to the array. Or its a child of a child of a template, so we have
-      // nested templates
-      item.childTemplates = item.childTemplates || [];
-      item.childTemplates.push(newChild);
-    } else if (type == "List") {
-      if (newChild.childTemplates) {
-        attributes.templates = attributes.templates || {};
-        attributes.templates[newChild.name] = newChild;
-      } else listItems.push(newChild);
-    } else if (type == "Section") {
-      listItems.push(newChild);
-    } else if (type == "Item") {
-      item[newChild.name] = newChild;
-    } else {
-      item.add(newChild);
-    }
+    children.push(newChild);
   }
+
+  var item = proxy.make(type, attributes, children, parentType);
+
+  // add a reference to the item onto self
+  if (attributes.id && !self.hasOwnProperty(attributes.id))
+    self[attributes.id] = item;
+
+  // add a reference to the newly created view on the new tree node
+  newTreeNode.view = item;
+  newTreeNode.type = type;
+
+  // Keep track of events so we can remove them later
+  newTreeNode.events = Object.keys(events);
+
+  self.handleEvents(item, type, events);
+
+  for (var ii in events) self.events.push(events[ii]);
+
+  return item;
+};
+
+// ## handleEvents
+// Handles the events for a particular item
+
+TemplateWrapper.prototype.handleEvents = function (item, type, events) {
+  var self = this;
 
   // Template events must be handled before the list is created
   if (type == "Template") {
-    attributes.events = Object.keys(events).reduce(function (memo, name) {
+    item.events = Object.keys(events).reduce(function (memo, name) {
       memo[name] = function (event) {
         self.emit(events[name], event);
       };
       return memo;
     }, {});
   }
-
-  if (type == "List") {
-    // List creation is deferred until this point so we can construct w/
-    // the sections
-    attributes.sections = listItems;
-    item = make(type, attributes);
-  } else if (type == "Section") {
-    console.log(JSON.stringify(listItems[0]));
-    item.setItems(listItems);
-  }
-
-  // add a reference to the item onto the emitter
-  if (attributes.id && !self.hasOwnProperty(attributes.id))
-    self[attributes.id] = item;
 
   // Regular events have to be handled after the item is created
   if (type != "Template") {
@@ -282,16 +254,6 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
       });
     });
   }
-
-  // add a reference to the newly created view on the new tree node
-  newTreeNode.view = item;
-  newTreeNode.type = type;
-  // Keep track of events so we can remove them later
-  newTreeNode.events = Object.keys(events);
-
-  for (var ii in events) self.events.push(events[ii]);
-
-  return item;
 };
 
 module.exports = TemplateWrapper;
