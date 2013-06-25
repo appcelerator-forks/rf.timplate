@@ -16,7 +16,7 @@ function TemplateWrapper (fn, type, stylesheets) {
   self.stylesheets = stylesheets;
   self.events = [];
 
-  self.tree = {children: []};
+  self.tree = {children: [], attributes: {}};
 }
 
 // Inherit from EventEmitter
@@ -156,40 +156,29 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
   var nodeType = sourceNode.nodeType;
   var attributes = {};
   var events = {};
-  var topLevel = false;
 
   if (goodNodeType(sourceNode) == "string") return sourceNode.nodeValue;
+  // Populates `attributes` and `events` objects.
   handleAttributes(sourceNode.attributes, attributes, events);
 
-  // If the child is a text node, use it as the text or title property of the
-  // new element. Edge case. We do this here instead of in the lower child
-  // processing loop because this way we set the attribute before creating
-  // the element.
-  if (sourceNode.firstChild) {
-    var child = sourceNode.firstChild, val = child.nodeValue;
-    if (goodNodeType(child) == "string") {
-      if (type == "Label") attributes.text = val;
-      else attributes.title = val;
-    }
-  }
-
   // Copy the base attributes into the tree node. We do this so we can apply
-  // styling changes to the base attributes.
-  newTreeNode.attributes = {};
+  // styling changes to the base attributes if we are live reloading styles.
   styler.defaultApply(newTreeNode.attributes, attributes);
-  newTreeNode.attributes.type = type;
+  newTreeNode.type = type;
 
   var styles = styler.resolve(self.stylesheets, props, type, attributes);
   styler.defaultApply(attributes, styles);
 
-  // we will put children of the current node here
+  // we will put children of the current node here. they are handled
+  // appropriately by the code in proxy.js
   var children = [];
-
+  // If the node contains text, we put it in here
+  var textValue = "";
   var childNodes = sourceNode.childNodes;
   var len = childNodes.length;
 
   for (iter = 0; iter < len; iter++) {
-    var newTreeChildNode = {children: []};
+    var newTreeChildNode = {children: [], attributes: {}};
 
     // We pass our type to the next call down since if we're a Template, the
     // child has to do weird edge case stuff. Also, if our parent was a 
@@ -202,15 +191,17 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
     );
 
     if (typeof newChild == "string") {
-      console.log("newChild:", newChild);
-      continue; // ignore text / cdata nodes
+      if (newChild) textValue += newChild;
     }
 
-    newTreeNode.children.push(newTreeChildNode);
-    children.push(newChild);
+    else {
+      newTreeNode.children.push(newTreeChildNode);
+      children.push(newChild);
+    }
   }
 
-  var item = proxy.make(type, attributes, children, parentType);
+  // Actually make the damn thing, see `proxy.js` to see how we do that
+  var item = proxy.make(type, attributes, children, parentType, textValue);
 
   // add a reference to the item onto self
   if (attributes.id && !self.hasOwnProperty(attributes.id))
@@ -218,14 +209,11 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
 
   // add a reference to the newly created view on the new tree node
   newTreeNode.view = item;
-  newTreeNode.type = type;
 
-  // Keep track of events so we can remove them later
+  // Keep track of events we may have added listeners for on the proxy
   newTreeNode.events = Object.keys(events);
 
   self.handleEvents(item, type, events);
-
-  for (var ii in events) self.events.push(events[ii]);
 
   return item;
 };
@@ -254,6 +242,9 @@ TemplateWrapper.prototype.handleEvents = function (item, type, events) {
       });
     });
   }
+
+  // We maintain a list of events for the TemplateWrapper#forward function
+  for (var ii in events) self.events.push(events[ii]);
 };
 
 module.exports = TemplateWrapper;

@@ -63,7 +63,7 @@ ctors.Template = function (type, attributes, children, parentType) {
 
 var ios = Ti.Platform.osname !== "android";
 
-function makeProxy (type, attributes, children, parentType) {
+function makeProxy (type, attributes, children, parentType, textValue) {
   if (type == "List") {
     // List creation is deferred until this point so we can construct w/
     // the sections
@@ -74,6 +74,11 @@ function makeProxy (type, attributes, children, parentType) {
       else attributes.sections.push(item);
     });
     if (attributes.sections.length === 0) delete attributes.sections;
+  }
+
+  if (textValue) {
+    if (type == "Label") attributes.text = textValue;
+    else attributes.title = textValue;
   }
 
   var proxy = Ti.UI['create' + proxyTypes[type]](attributes);
@@ -89,7 +94,7 @@ function makeProxy (type, attributes, children, parentType) {
   return proxy;
 }
 
-function make (type, attributes, children, parentType) {
+function make (type, attributes, children, parentType, textValue) {
   if (parentType == "Template") {
     // In template mode we need to output a template fragment instead of an
     // actual view.
