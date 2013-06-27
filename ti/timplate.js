@@ -19,13 +19,18 @@ module.exports = (function() {
   }
 
   var EventEmitter = require('timplate/eventemitter2').EventEmitter2;
+  var Spade;
+  
+  // List of wrappers to update when we receive updates over socket.io
+  var wrappers = [];
 
   // Connect for live reload
   function connect (host) {
     var io = require('timplate/socket.io');
     var socket = io.connect(host || "localhost:3456");
+    if (!Spade) Spade = require('org.russfrank.spade');
 
-    timplate.updates = new EventEmitter();
+    timplate.updates = true;
 
     socket.on('styles', function (styles) {
       /*jshint evil:true */
@@ -33,7 +38,14 @@ module.exports = (function() {
       try {
         stylesheets = eval('(' + styles + ')');
         styler.clearResolveMemo();
-        timplate.updates.emit('styles');
+        garbageCollectWrappers();
+
+        for (var w in wrappers) {
+          var wrapper = wrappers[w];
+          wrapper.stylesheets = stylesheets;
+          wrapper.updateAllStyles();
+        }
+
       } catch (e) {
         console.log('Error receiving styles');
         console.log(e);
@@ -48,7 +60,15 @@ module.exports = (function() {
         var jade = require('/timplate/jade-runtime');
         var Handlebars = require('/timplate/handlebars.runtime'); 
         templates = eval(newTemplates);
-        timplate.updates.emit('templates');
+
+        garbageCollectWrappers();
+        for (var w in wrappers) {
+          var wrapper = wrappers[w];
+          if (!templates.fns[wrapper._name]) return;
+          wrapper.fn = templates.fns[wrapper._name];
+          wrapper.update(wrapper._locals);
+        }
+
       }
 
       catch (e) {
@@ -75,6 +95,16 @@ module.exports = (function() {
     });
   }
 
+  function garbageCollectWrappers () {
+    for (var i = wrappers.length - 1; i !== 0; i--) {
+      var wrapper = wrappers[i];
+
+      // If a view is no longer visible, stop auto-updating it
+      if (!Spade.visible(wrapper.tree.view) && wrapper.tree.type != "Window")
+        wrappers.splice(i, 1);
+    }
+  }
+
   function timplate (name) {
     if (typeof templates.fns[name] == 'undefined') {
       throw new Error("template " + name + " not found");
@@ -85,22 +115,21 @@ module.exports = (function() {
 
       var wrapper = new TemplateWrapper(template, type, stylesheets);
       wrapper.update(locals);
+      wrapper._name = name;
+      wrapper._locals = locals;
 
       if (timplate.updates) {
-        var onStylesUpdate = function () {
-          wrapper.stylesheets = stylesheets;
-          wrapper.updateAllStyles();
-        };
-
-        timplate.updates.on('styles', onStylesUpdate);
-
-        var remover = function () {
-          wrapper.tree.view.removeEventListener('close', remover);
-          timplate.updates.off('styles', onStylesUpdate);
-        };
-
-        if (wrapper.tree.type == "Window") 
-          wrapper.tree.view.addEventListener('close', remover);
+        wrappers.push(wrapper);
+        
+        if (wrapper.tree.type == "Window") {
+          wrapper.tree.view.addEventListener('close', function onCloseHandler () {
+            for (var i = wrappers.length - 1; i !== 0; i--) {
+              var w = wrappers[i];
+              if (w === wrapper) wrappers.splice(i, 1);
+            }
+            wrapper.tree.view.removeEventListener('close', onCloseHandler);
+          });
+        }
       }
 
       return wrapper;

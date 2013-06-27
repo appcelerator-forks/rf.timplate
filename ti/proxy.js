@@ -76,6 +76,16 @@ function makeProxy (type, attributes, children, parentType, textValue) {
     if (attributes.sections.length === 0) delete attributes.sections;
   }
 
+  else if (type == "Table") {
+    attributes.data = children;
+  }
+
+  else if (type == "TableSection" && ios) {
+    // on ios we can just set attributes.rows; on android we have to add the
+    // rows below
+    attributes.rows = children;
+  }
+
   if (textValue) {
     if (type == "Label") attributes.text = textValue;
     else attributes.title = textValue;
@@ -85,7 +95,9 @@ function makeProxy (type, attributes, children, parentType, textValue) {
 
   if (type == "Section") {
     proxy.setItems(children);
-  } else if (type != "List" && children.length) {
+  } else if (type == "TableSection") {
+    if (!ios) children.forEach(function (child) { proxy.add(child); });
+  } else if (type != "Table" && type != "List" && children.length) {
     // iOS `View#add` method can take an array, android add method cannot
     if (ios) proxy.add(children);
     else children.forEach(function (child) { proxy.add(child); });
@@ -96,7 +108,7 @@ function makeProxy (type, attributes, children, parentType, textValue) {
 
 function make (type, attributes, children, parentType, textValue) {
   if (parentType == "Template") {
-    // In template mode we need to output a template fragment instead of an
+    // In 'template mode' we need to output a template fragment instead of an
     // actual view.
     var ret = {
       properties: attributes,
@@ -111,7 +123,7 @@ function make (type, attributes, children, parentType, textValue) {
 
   // If the parent is an item, this needs to just be an object
   if (parentType == "Item") {
-    attributes.name = type;
+    attributes.name = attributes.name || type;
     return attributes;
   }
 

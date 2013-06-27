@@ -55,8 +55,24 @@ TemplateWrapper.prototype.forward = function (handler) {
 TemplateWrapper.prototype.update = function (locals) {
   var self = this;
 
+  // already constructed once, we need to remove and reconstruct then readd
+  if (self.tree.view) {
+    self.parent = self.tree.view.parent;
+    if (self.parent) self.parent.remove(self.tree.view);
+    else {
+      self.parent = "window";
+      self.tree.view.close();
+    }
+  }
+
   self.getXML(locals);
   self.create(self.doc, "top", self.tree);
+
+  // there's a parent reference so we need to re-add the view or re-open the win
+  if (self.parent) {
+    if (self.parent == "window") self.tree.view.open();
+    else self.parent.add(self.tree.view);
+  }
 };
 
 var ios = Ti.Platform.osname !== "android";
@@ -204,8 +220,7 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
   var item = proxy.make(type, attributes, children, parentType, textValue);
 
   // add a reference to the item onto self
-  if (attributes.id && !self.hasOwnProperty(attributes.id))
-    self[attributes.id] = item;
+  if (attributes.id) self[attributes.id] = item;
 
   // add a reference to the newly created view on the new tree node
   newTreeNode.view = item;

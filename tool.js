@@ -182,6 +182,6 @@ if (program.watch) {
       lastTemplates = data;
       io.sockets.emit('templates', data);
     });
-  }, 2000));
+  }, 200));
 }
 
