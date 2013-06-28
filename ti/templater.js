@@ -14,7 +14,7 @@ function TemplateWrapper (fn, type, stylesheets) {
   self.fn = fn;
   self.type = type;
   self.stylesheets = stylesheets;
-  self.events = [];
+  self.events = {};
 
   self.tree = {children: [], attributes: {}};
 }
@@ -36,7 +36,7 @@ TemplateWrapper.prototype = Object.create(EventEmitter.prototype, {
 TemplateWrapper.prototype.forward = function (handler) {
   var self = this;
 
-  self.events.forEach(function (name) {
+  Object.keys(self.events).forEach(function (name) {
     var correctedName = "on" + name.slice(0, 1).toUpperCase() + name.slice(1);
 
     if (handler[correctedName]) self.on(name, function (event) {
@@ -63,6 +63,8 @@ TemplateWrapper.prototype.update = function (locals) {
       self.parent = "window";
       self.tree.view.close();
     }
+
+    self.tree.children = [];
   }
 
   self.getXML(locals);
@@ -102,7 +104,7 @@ TemplateWrapper.prototype.updateStyles = function (view) {
   var styles = styler.resolve(
     self.stylesheets, 
     props, 
-    view.attributes.type, 
+    view.type, 
     view.attributes
   );
 
@@ -225,10 +227,7 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
   // add a reference to the newly created view on the new tree node
   newTreeNode.view = item;
 
-  // Keep track of events we may have added listeners for on the proxy
-  newTreeNode.events = Object.keys(events);
-
-  self.handleEvents(item, type, events);
+  newTreeNode.events = self.handleEvents(item, type, events);
 
   return item;
 };
@@ -239,27 +238,22 @@ TemplateWrapper.prototype.create = function (sourceNode, parentType, newTreeNode
 TemplateWrapper.prototype.handleEvents = function (item, type, events) {
   var self = this;
 
-  // Template events must be handled before the list is created
-  if (type == "Template") {
-    item.events = Object.keys(events).reduce(function (memo, name) {
-      memo[name] = function (event) {
-        self.emit(events[name], event);
-      };
-      return memo;
-    }, {});
-  }
+  var eventMap = Object.keys(events).reduce(function (memo, name) {
+    memo[name] = function (event) {
+      self.emit(events[name], event);
+    };
+    return memo;
+  }, {});
 
-  // Regular events have to be handled after the item is created
-  if (type != "Template") {
-    Object.keys(events).forEach(function (eventName) {
-      item.addEventListener(eventName, function (event) {
-        self.emit(events[eventName], event);
-      });
-    });
-  }
+  if (type == "Template") item.events = eventMap;
+  else Object.keys(eventMap).forEach(function (name) {
+    item.addEventListener(name, eventMap[name]);
+  });
 
   // We maintain a list of events for the TemplateWrapper#forward function
-  for (var ii in events) self.events.push(events[ii]);
+  for (var ii in events) self.events[events[ii]] = true;
+
+  return eventMap;
 };
 
 module.exports = TemplateWrapper;

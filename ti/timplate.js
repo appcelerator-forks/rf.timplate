@@ -100,7 +100,7 @@ module.exports = (function() {
       var wrapper = wrappers[i];
 
       // If a view is no longer visible, stop auto-updating it
-      if (!Spade.visible(wrapper.tree.view) && wrapper.tree.type != "Window")
+      if (wrapper.tree.type != "Window" && !Spade.visible(wrapper.tree.view))
         wrappers.splice(i, 1);
     }
   }
