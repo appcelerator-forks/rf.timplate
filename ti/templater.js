@@ -55,12 +55,17 @@ TemplateWrapper.prototype.forward = function (handler) {
 TemplateWrapper.prototype.update = function (locals) {
   var self = this;
 
+  // TODO: correct remove / readd logic for other types of proxies
+
   // already constructed once, we need to remove and reconstruct then readd
   if (self.tree.view) {
     self.parent = self.tree.view.parent;
     if (self.parent) self.parent.remove(self.tree.view);
-    else {
+    else if (self.tree.type != "Section") {
       self.parent = "window";
+      try { 
+        self.tree.view.removeEventListener(self.tree.onCloseHandler); 
+      } catch (e) { /* handler already removed */ }
       self.tree.view.close();
     }
 
@@ -72,8 +77,14 @@ TemplateWrapper.prototype.update = function (locals) {
 
   // there's a parent reference so we need to re-add the view or re-open the win
   if (self.parent) {
-    if (self.parent == "window") self.tree.view.open();
-    else self.parent.add(self.tree.view);
+    if (self.parent == "window") {
+      self.tree.view.open();
+      self._ignoreClose = false;
+      console.log("opened win");
+    } else {
+      if (self.tree.type == "Section") self.parent.sections = [self.tree.view];
+      else self.parent.add(self.tree.view);
+    }
   }
 };
 

@@ -19,7 +19,6 @@ module.exports = (function() {
   }
 
   var EventEmitter = require('timplate/eventemitter2').EventEmitter2;
-  var Spade;
   
   // List of wrappers to update when we receive updates over socket.io
   var wrappers = [];
@@ -28,7 +27,6 @@ module.exports = (function() {
   function connect (host) {
     var io = require('timplate/socket.io');
     var socket = io.connect(host || "localhost:3456");
-    if (!Spade) Spade = require('org.russfrank.spade');
 
     timplate.updates = true;
 
@@ -68,7 +66,6 @@ module.exports = (function() {
           wrapper.fn = templates.fns[wrapper._name];
           wrapper.update(wrapper._locals);
         }
-
       }
 
       catch (e) {
@@ -99,9 +96,12 @@ module.exports = (function() {
     for (var i = wrappers.length - 1; i !== 0; i--) {
       var wrapper = wrappers[i];
 
-      // If a view is no longer visible, stop auto-updating it
-      if (wrapper.tree.type != "Window" && !Spade.visible(wrapper.tree.view))
+      // TODO: find a way of removing wrappers here when we no longer need to
+      // update them
+
+      if (wrapper._done) {
         wrappers.splice(i, 1);
+      }
     }
   }
 
@@ -128,6 +128,7 @@ module.exports = (function() {
               if (w === wrapper) wrappers.splice(i, 1);
             }
             wrapper.tree.view.removeEventListener('close', onCloseHandler);
+            wrapper.tree.onCloseHandler = onCloseHandler;
           });
         }
       }
