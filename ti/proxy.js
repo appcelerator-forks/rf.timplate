@@ -103,6 +103,19 @@ function makeProxy (type, attributes, children, parentType, textValue) {
     else children.forEach(function (child) { proxy.add(child); });
   }
 
+  proxy.on = function (eventName, handler) {
+    proxy.addEventListener(eventName, function (event) {
+      try { handler(event, proxy); }
+      catch (e) {
+        Ti.App.fireEvent('unhandledException', {
+          event: eventName,
+          type: type,
+          exception: e
+        });
+      }
+    });
+  };
+
   return proxy;
 }
 

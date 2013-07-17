@@ -251,7 +251,15 @@ TemplateWrapper.prototype.handleEvents = function (item, type, events) {
 
   var eventMap = Object.keys(events).reduce(function (memo, name) {
     memo[name] = function (event) {
-      self.emit(events[name], event);
+      try { self.emit(events[name], event, item); } 
+      catch (e) {
+        console.log('Unhandled exception in ' + name + ' handler for ' + type);
+        Ti.App.fireEvent('unhandledException', {
+          event: name,
+          type: type,
+          exception: e
+        });
+      }
     };
     return memo;
   }, {});
