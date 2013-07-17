@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // The main timplate tool. This takes templates and stylesheets and compiles
 // them to templates.js and styles.js files which are placed into the app's
 // Resources/timplate directory.
