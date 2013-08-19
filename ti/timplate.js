@@ -168,10 +168,11 @@ module.exports = (function() {
       else if (attrs.style) { style = attrs.style; delete attrs.style; }
 
       var parts;
-      if (style) {
+      if (typeof style == "string") {
         parts = style.split('.');
+
         if (parts[0][0] == "#") {
-          attrs.id = parts.unshift().slice(1);
+          attrs.id = parts.shift().slice(1);
         }
 
         attrs['class'] = parts.join(' ');
@@ -184,6 +185,10 @@ module.exports = (function() {
   });
 
   timplate.connect = connect;
+
+  timplate.setProperty = function (prop, val) {
+    props[prop] = val;
+  };
 
   return timplate;
 }());

@@ -1,5 +1,13 @@
 (function () {
 
+var _;
+
+// try to require underscore
+try { _ = require('vendor/underscore'); } catch (e) {}
+try { _ = require('underscore'); } catch (e) {}
+try { _ = require('../underscore'); } catch (e) {}
+try { _ = require('../../underscore'); } catch (e) {}
+
 // ## defaultApply
 // Does a default-apply into dest from src
 function defaultApply (dest, src) {
@@ -157,12 +165,28 @@ function resolve (stylesheets, properties, type, attributes) {
     // Collapse the styles according to specificty
     collapsed = collapse(out);
 
+    if (_) for (var prop in collapsed) if (collapsed.hasOwnProperty(prop)) {
+      // we replace the computed style string with a template function
+      // this way we generate the template function once instead of
+      // every time
+
+      if (typeof(collapsed[prop]) == "string") {
+        collapsed[prop] = _.template(collapsed[prop]);
+        collapsed[prop].__templatefn = true; // mark it as a template function
+      }
+    }
+
     resolveMemo[memoKey] = collapsed;
   }
 
   var styles = {};
   apply(styles, collapsed);
   //apply(styles, attributes);
+  
+  if (_) for (var ii in styles) 
+    if (styles[ii] && styles[ii].__templatefn)
+      styles[ii] = styles[ii](properties);
+
   return styles;
 }
 
