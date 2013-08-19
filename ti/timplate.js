@@ -1,6 +1,8 @@
 module.exports = (function() {
   var TemplateWrapper = require('timplate/templater');
   var styler = require('timplate/styler');
+  var proxy = require('timplate/proxy');
+  var props = require('timplate/props');
 
   var templates;
   try {
@@ -136,6 +138,50 @@ module.exports = (function() {
       return wrapper;
     };
   }
+
+  // Put constructors for all of the proxies on the main timplate object
+  Object.keys(proxy.proxyTypes).forEach(function (type) {
+
+    // Constructors can be called like
+    //   timplate.Window('#id');
+    //   timplate.Window({prop: 'val', style: '#id'});
+    //   timplate.Window('#id', {prop: 'val'});
+    //   timplate.Window('#id', children);
+    // etc
+
+    timplate[type] = function () {
+      var style;
+      var attrs = {};
+      var children = [];
+
+      if (typeof arguments[0] == "string") style = arguments[0];
+      else if (typeof arguments[0] == "object") attrs = arguments[0];
+
+      if (typeof arguments[1] == "object") attrs = arguments[1];
+      else if (Array.isArray(arguments[1])) children = arguments[1];
+
+      if (Array.isArray(arguments[2])) children = arguments[2];
+
+      if (attrs.tyle) style = attrs.tyle;
+      else if (attrs.s) style = attrs.s;
+      else if (attrs.styl) style = attrs.styl;
+      else if (attrs.style) { style = attrs.style; delete attrs.style; }
+
+      var parts;
+      if (style) {
+        parts = style.split('.');
+        if (parts[0][0] == "#") {
+          attrs.id = parts.unshift().slice(1);
+        }
+
+        attrs['class'] = parts.join(' ');
+      }
+
+      var styles = styler.resolve(stylesheets, props, type, attrs);
+
+      return proxy.make(type, styles, children, "dunno", null);
+    };
+  });
 
   timplate.connect = connect;
 

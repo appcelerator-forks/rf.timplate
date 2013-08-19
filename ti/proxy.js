@@ -161,5 +161,6 @@ function make (type, attributes, children, parentType, textValue) {
 }
 
 exports.make = make;
+exports.proxyTypes = proxyTypes;
 
 }());

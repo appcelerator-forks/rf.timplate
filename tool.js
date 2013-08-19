@@ -96,7 +96,6 @@ function parseTemplates(templatesDir, outputDir, done) {
       "exports.types = {" + typeLines.join(",") + "}; " +
       "exports.fns = {" + templateLines.join(",") + "}}());";
     fs.writeFile(path.join(outputDir, "templates.js"), buf, function () {
-      /*jshint evil:true*/
       done(null, "({" +
         "types: {" + typeLines.join(",") + "}," +
         "fns: {" + templateLines.join(",") + "}})");
