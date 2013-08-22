@@ -25,9 +25,9 @@ function defaultApply (dest, src) {
 // applies into dest from src
 function apply (dest, src) {
   if (!dest) {
-    console.log("Apply called with falsy dest");
-    console.log(arguments);
-    console.log(new Error().stack);
+    Ti.API.debug("Apply called with falsy dest");
+    Ti.API.debug(arguments);
+    Ti.API.debug(new Error().stack);
     return;
   }
 
@@ -223,8 +223,8 @@ function resolve (stylesheets, properties, type, attributes, params) {
         }
 
         catch (e) {
-          console.log("Template error in template for " + ii + " type " + type + ":");
-          console.log(e);
+          Ti.API.debug("Template error in template for " + ii + " type " + type + ":");
+          Ti.API.debug(e);
         }
       }
   }

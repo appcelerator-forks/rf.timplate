@@ -80,7 +80,7 @@ TemplateWrapper.prototype.update = function (locals) {
     if (self.parent == "window") {
       self.tree.view.open();
       self._ignoreClose = false;
-      console.log("opened win");
+      Ti.API.debug("opened win");
     } else {
       if (self.tree.type == "Section") self.parent.sections = [self.tree.view];
       else self.parent.add(self.tree.view);
@@ -253,7 +253,7 @@ TemplateWrapper.prototype.handleEvents = function (item, type, events) {
     memo[name] = function (event) {
       try { self.emit(events[name], event, item); } 
       catch (e) {
-        console.log('Unhandled exception in ' + name + ' handler for ' + type);
+        Ti.API.debug('Unhandled exception in ' + name + ' handler for ' + type);
         Ti.App.fireEvent('unhandledException', {
           event: name,
           type: type,

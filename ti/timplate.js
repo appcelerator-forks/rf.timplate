@@ -8,7 +8,7 @@ module.exports = (function() {
   try {
     templates = require('timplate/templates');
   } catch (e) {
-    console.log("timplate: no templates found");
+    Ti.API.debug("timplate: no templates found");
     return;
   }
 
@@ -16,7 +16,7 @@ module.exports = (function() {
   try {
     stylesheets = require('timplate/styles');
   } catch (e) {
-    console.log("timplate: no stylesheets found");
+    Ti.API.debug("timplate: no stylesheets found");
     return;
   }
 
@@ -34,7 +34,7 @@ module.exports = (function() {
 
     socket.on('styles', function (styles) {
       /*jshint evil:true */
-      console.log("Received stylesheet update");
+      Ti.API.debug("Received stylesheet update");
       try {
         stylesheets = eval('(' + styles + ')');
         styler.clearResolveMemo();
@@ -47,15 +47,15 @@ module.exports = (function() {
         }
 
       } catch (e) {
-        console.log('Error receiving styles');
-        console.log(e);
+        Ti.API.debug('Error receiving styles');
+        Ti.API.debug(e);
       }
     });
 
     socket.on('templates', function (newTemplates) {
       /*jshint evil:true */
       /* disabled for now
-      console.log("Recevied template update");
+      Ti.API.debug("Recevied template update");
 
       try {
         var jade = require('/timplate/jade-runtime');
@@ -72,15 +72,14 @@ module.exports = (function() {
       }
 
       catch (e) {
-        console.log("Error receiving template update");
-        console.log(e);
+        Ti.API.debug("Error receiving template update");
+        Ti.API.debug(e);
       }
       */
     });
 
     socket.on('connect', function () {
-      console.log("connected");
-      alert('connected');
+      Ti.API.debug("connected");
       socket.emit('register', {
         id: Ti.Platform.id,
         osname: Ti.Platform.osname,
@@ -89,13 +88,11 @@ module.exports = (function() {
     });
 
     socket.on('connect_failed', function (event) {
-      console.log("connected failed");
-      alert('websocket connection failed');
+      Ti.API.debug("connected failed");
     });
 
     socket.on('error', function (event) {
-      alert(event);
-      console.log("error", event);
+      Ti.API.debug("error", event);
     });
   }
 
@@ -183,7 +180,6 @@ module.exports = (function() {
       if (attrs.tyle) style = attrs.tyle;
       else if (attrs.s) style = attrs.s;
       else if (attrs.styl) style = attrs.styl;
-      else if (attrs.style) { style = attrs.style; delete attrs.style; }
     }
 
     // If arg 2 is a string, assume its a style string
@@ -217,6 +213,28 @@ module.exports = (function() {
     styler.defaultApply(computedStyles, styles);
 
     return computedStyles;
+  };
+
+  function splitIgnoreSpace (thing, delim) {
+    return thing.split(delim).reduce(function (memo, item) {
+      if (item) memo.push(item);
+      return memo;
+    }, []);
+  }
+
+  timplate.applyStyles = function (target, style) {
+    var type;
+    if (style[0] != "#" && style[0] != ".") {
+      var parts = splitIgnoreSpace(style, '#').map(function (item) {
+        return splitIgnoreSpace(item, '.');
+      });
+
+      type = parts[0];
+      style = style.slice(type.length);
+    }
+
+    var styles = timplate.getProps(type, {}, style, {});
+    styler.apply(target, styles);
   };
 
   timplate.connect = connect;

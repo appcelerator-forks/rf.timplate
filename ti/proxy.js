@@ -114,6 +114,7 @@ function makeProxy (type, attributes, children, parentType, textValue) {
         });
       }
     });
+    return proxy;
   };
 
   return proxy;
