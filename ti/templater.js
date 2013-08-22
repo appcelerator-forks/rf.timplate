@@ -257,7 +257,8 @@ TemplateWrapper.prototype.handleEvents = function (item, type, events) {
         Ti.App.fireEvent('unhandledException', {
           event: name,
           type: type,
-          exception: e
+          exception: e,
+          error: e
         });
       }
     };

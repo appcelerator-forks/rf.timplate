@@ -8,6 +8,11 @@ try { _ = require('underscore'); } catch (e) {}
 try { _ = require('../underscore'); } catch (e) {}
 try { _ = require('../../underscore'); } catch (e) {}
 
+try { _ = require('vendor/lodash'); } catch (e) {}
+try { _ = require('lodash'); } catch (e) {}
+try { _ = require('../lodash'); } catch (e) {}
+try { _ = require('../../lodash'); } catch (e) {}
+
 // ## defaultApply
 // Does a default-apply into dest from src
 function defaultApply (dest, src) {
@@ -136,6 +141,21 @@ function buildSelectorList (type, attributes) {
 
 var resolveMemo = {};
 
+// tries to parse input as a number. If it is, returns input as type number
+function tryNumber (input) {
+  var test = parseInt(input, 10);
+
+  if (test.toString() === input) return test;
+  else return input;
+}
+
+// tries to parse input as a bool. If it is, returns input as type bool
+function tryBoolean (input) {
+  if (input === "true") return true;
+  else if (input === "false") return false;
+  else return input;
+}
+
 // ## resolve
 // Resolve styles
 //  * `stylesheets`: output of the stylesheet compiler
@@ -145,7 +165,7 @@ var resolveMemo = {};
 //    compute. also this is where we get id and class from
 //  Don't worry its memoized   :  ]
 
-function resolve (stylesheets, properties, type, attributes) {
+function resolve (stylesheets, properties, type, attributes, params) {
   var memoKey = type + "#" + attributes.id + "." + attributes['class'];
 
   var collapsed;
@@ -168,9 +188,16 @@ function resolve (stylesheets, properties, type, attributes) {
     if (_) for (var prop in collapsed) if (collapsed.hasOwnProperty(prop)) {
       // we replace the computed style string with a template function
       // this way we generate the template function once instead of
-      // every time
+      // every time. We also try to parse it as a number or bool here
 
-      if (typeof(collapsed[prop]) == "string") {
+      var res;
+      if (typeof (res = tryNumber(collapsed[prop])) == "Number") 
+        collapsed[prop] = res;
+
+      else if (typeof (res = tryBoolean(collapsed[prop])) == "Boolean") 
+        collapsed[prop] = res;
+
+      else if (typeof(collapsed[prop]) == "string") {
         collapsed[prop] = _.template(collapsed[prop]);
         collapsed[prop].__templatefn = true; // mark it as a template function
       }
@@ -181,11 +208,26 @@ function resolve (stylesheets, properties, type, attributes) {
 
   var styles = {};
   apply(styles, collapsed);
-  //apply(styles, attributes);
   
-  if (_) for (var ii in styles) 
-    if (styles[ii] && styles[ii].__templatefn)
-      styles[ii] = styles[ii](properties);
+  if (_) {
+    var computedVars = {};
+    apply(computedVars, params);
+    apply(computedVars, properties);
+    for (var ii in styles) 
+      if (styles[ii] && styles[ii].__templatefn) {
+        try {
+          styles[ii] = styles[ii](computedVars);
+          // remove ""
+          if (styles[ii][0] == '"') styles[ii] = styles[ii].slice(1, -1);
+          if (styles[ii][0] == "'") styles[ii] = styles[ii].slice(1, -1);
+        }
+
+        catch (e) {
+          console.log("Template error in template for " + ii + " type " + type + ":");
+          console.log(e);
+        }
+      }
+  }
 
   return styles;
 }
